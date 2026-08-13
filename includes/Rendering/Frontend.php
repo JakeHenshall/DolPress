@@ -24,7 +24,7 @@ final class Frontend {
 	) {}
 
 	public function register(): void {
-		add_filter( 'the_content', array( $this, 'filter_content' ), 8 );
+		add_filter( 'the_content', array( $this, 'filter_content' ), 20 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
 	}
 

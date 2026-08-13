@@ -15,8 +15,9 @@
   display: none;
 }
 
-.dolpress-tx {
-  display: block;
+.dolpress-tx--center,
+.dolpress-tx--left,
+.dolpress-tx--right {
   margin: 0 0 1em;
 }
 

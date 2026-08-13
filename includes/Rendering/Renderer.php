@@ -19,6 +19,9 @@ use Nought\DolPress\Parser\TextNode;
 use Nought\DolPress\Support\SettingsRepository;
 
 final class Renderer implements RendererInterface {
+	private const BLOCK_CODES = array( 'HR', 'IM', 'TR', 'WB', 'WN', 'WL', 'WC', 'WG' );
+	private const ALIGN_FLAGS = array( 'CX', 'L', 'R' );
+
 	public function __construct(
 		private readonly ParserInterface $parser,
 		private readonly CommandRegistryInterface $commands,
@@ -47,10 +50,45 @@ final class Renderer implements RendererInterface {
 	 * @param list<Diagnostic> $diagnostics
 	 */
 	private function nodes( array $nodes, RenderContext $context, array &$diagnostics ): string {
-		$html = '';
+		$html   = '';
+		$inline = '';
+
+		$flush = static function () use ( &$html, &$inline ): void {
+			$trimmed = trim( $inline );
+			if ( '' === $trimmed ) {
+				$inline = '';
+				return;
+			}
+			$html  .= '<p>' . $trimmed . '</p>';
+			$inline = '';
+		};
+
 		foreach ( $nodes as $node ) {
-			$html .= $this->node( $node, $context, $diagnostics );
+			if ( $node instanceof TextNode ) {
+				$inline = $this->append_text( $inline, $node->value );
+				continue;
+			}
+
+			if ( $node instanceof CommandNode && 'CR' === strtoupper( $node->code ) ) {
+				$flush();
+				continue;
+			}
+
+			$chunk = $this->command_html( $node, $context, $diagnostics );
+			if ( '' === $chunk ) {
+				continue;
+			}
+
+			if ( $this->is_block( $node ) ) {
+				$flush();
+				$html .= $chunk;
+				continue;
+			}
+
+			$inline .= $chunk;
 		}
+
+		$flush();
 
 		return $html;
 	}
@@ -58,15 +96,7 @@ final class Renderer implements RendererInterface {
 	/**
 	 * @param list<Diagnostic> $diagnostics
 	 */
-	private function node( Node $node, RenderContext $context, array &$diagnostics ): string {
-		if ( $node instanceof TextNode ) {
-			if ( '' === trim( $node->value ) ) {
-				return Html::text( $node->value );
-			}
-
-			return '<p>' . nl2br( Html::text( $node->value ), false ) . '</p>';
-		}
-
+	private function command_html( Node $node, RenderContext $context, array &$diagnostics ): string {
 		if ( ! $node instanceof CommandNode ) {
 			return '';
 		}
@@ -116,6 +146,38 @@ final class Renderer implements RendererInterface {
 			);
 			return $this->unknown( $node, $context );
 		}
+	}
+
+	private function is_block( Node $node ): bool {
+		if ( ! $node instanceof CommandNode ) {
+			return false;
+		}
+
+		$code = strtoupper( $node->code );
+		if ( in_array( $code, self::BLOCK_CODES, true ) ) {
+			return true;
+		}
+
+		if ( 'TX' === $code ) {
+			return array() !== array_intersect( $node->flags, self::ALIGN_FLAGS );
+		}
+
+		return false;
+	}
+
+	private function append_text( string $inline, string $value ): string {
+		$collapsed = preg_replace( '/[ \t]*\R[ \t]*/', ' ', str_replace( array( "\r\n", "\r" ), "\n", $value ) );
+		$collapsed = is_string( $collapsed ) ? $collapsed : $value;
+
+		if ( '' === trim( $collapsed ) ) {
+			if ( '' !== $inline && ! str_ends_with( $inline, ' ' ) ) {
+				return $inline . ' ';
+			}
+
+			return $inline;
+		}
+
+		return $inline . Html::text( $collapsed );
 	}
 
 	private function unknown( CommandNode $node, RenderContext $context ): string {

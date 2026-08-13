@@ -62,7 +62,9 @@ final class TextCommand extends AbstractCommand {
 			$class .= ' ' . $arguments['CLASS'];
 		}
 
-		return $this->el( 'span', $text, array( 'class' => $class ) );
+		$tag = array() !== array_intersect( $flags, array( 'CX', 'L', 'R' ) ) ? 'p' : 'span';
+
+		return $this->el( $tag, $text, array( 'class' => $class ) );
 	}
 }
 
