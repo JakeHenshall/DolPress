@@ -1,0 +1,16 @@
+{
+  "name": "dolpress",
+  "private": true,
+  "version": "0.1.0",
+  "description": "DolPress editor assets",
+  "scripts": {
+    "build": "esbuild src/editor/index.ts --bundle --format=iife --outfile=assets/dist/editor.js --minify && esbuild src/parser-worker/index.ts --bundle --format=iife --outfile=assets/dist/parser-worker.js --minify && esbuild src/parser/index.ts --bundle --format=cjs --outfile=tests/js/parser.cjs && esbuild src/styles/editor.css --bundle --outfile=assets/dist/editor.css --minify && esbuild src/styles/frontend.css --bundle --outfile=assets/dist/frontend.css --minify",
+    "test": "node tests/js/run-fixtures.cjs",
+    "watch": "esbuild src/editor/index.ts --bundle --format=iife --outfile=assets/dist/editor.js --watch"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0"
+  }
+}

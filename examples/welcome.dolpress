@@ -1,0 +1,16 @@
+$TX+CX,"WELCOME TO THE TEMPLE"$
+$CR$
+$WG,SIZE=96,LINK=home$
+$CR$
+$WS,FIELD="name"$
+$CR$
+$FG,YELLOW$
+This site is powered by DolPress, a DolDoc-inspired editor by Nought Digital.
+$CR$
+$WN,LOCATION="primary",DEPTH=2$
+$CR$
+$WL,TYPE="latest",COUNT=5,SHOW="title,date,excerpt"$
+$CR$
+$WC,MODE="list"$
+$CR$
+$WC,MODE="form"$

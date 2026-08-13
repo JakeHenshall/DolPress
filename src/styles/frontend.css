@@ -1,0 +1,35 @@
+.dolpress-document {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  color: #ffff55;
+  background: #0000aa;
+  padding: 1rem;
+}
+
+.dolpress-colour-black { color: #000; }
+.dolpress-colour-blue, .dolpress-fg.dolpress-colour-blue { color: #55f; }
+.dolpress-document [data-dolpress-fg="yellow"] ~ .dolpress-tx,
+.dolpress-fg.dolpress-colour-yellow { color: #ffff55; }
+.dolpress-fg.dolpress-colour-white { color: #fff; }
+.dolpress-fg.dolpress-colour-red { color: #ff5555; }
+.dolpress-fg.dolpress-colour-green { color: #55ff55; }
+.dolpress-fg.dolpress-colour-cyan { color: #55ffff; }
+.dolpress-bg.dolpress-colour-black { background: #000; }
+.dolpress-tx--center { display: block; text-align: center; }
+.dolpress-tx--left { display: block; text-align: left; }
+.dolpress-tx--right { display: block; text-align: right; }
+.dolpress-ul { text-decoration: underline; }
+.dolpress-hl { background: #ffff55; color: #000; }
+.dolpress-iv { background: #ffff55; color: #0000aa; }
+.dolpress-wn, .dolpress-wb, .dolpress-wl { margin: 1rem 0; }
+.dolpress-wl--grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+.dolpress-fallback { white-space: pre-wrap; }
+.dolpress-bt { background: #aaa; color: #000; border: 2px solid #fff; padding: 0.4rem 0.8rem; }
+.dolpress-lk { color: #55ffff; }
+.dolpress-diagnostic { outline: 1px dashed #ff5555; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dolpress-document * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

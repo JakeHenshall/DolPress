@@ -1,0 +1,26 @@
+grammar = { text | command | literal_dollar } ;
+
+literal_dollar = "$$" ;
+text = { char - "$" } ;
+command = "$" code { flag } [ "," argument { "," argument } ] "$"
+        | "$/" code "$" ;
+
+code = letter letter ;
+flag = "+" ident ;
+argument = [ ident "=" ] value ;
+value = string | number | boolean | ident ;
+string = '"' { string_char | escape } '"' ;
+escape = "\\" ( '"' | "\\" | "$" | "n" | "t" ) ;
+number = [ "-" ] digits [ "." digits ] ;
+boolean = "TRUE" | "FALSE" ;
+ident = ( letter | digit | "_" ) { letter | digit | "_" } ;
+
+paired_open = "$TR" { flag } [ "," argument { "," argument } ] "$" ;
+paired_close = "$/TR$" ;
+tree = paired_open grammar paired_close ;
+
+(* Commands never evaluate expressions. Arguments are data. *)
+(* Unknown commands remain in the AST and are not executed. *)
+(* A malformed command recovers at the next '$' and parsing continues. *)
+(* Line endings CR, LF, and CRLF are accepted. Columns are 1-based. *)
+(* Grammar version is independent of plugin version: 0.1 *)

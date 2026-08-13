@@ -1,0 +1,12 @@
+/vendor/
+/node_modules/
+/assets/dist/
+/tests/js/parser.cjs
+/dist/
+.phpunit.cache
+.phpunit.result.cache
+/phpstan.cache
+.DS_Store
+*.log
+composer.lock
+package-lock.json
