@@ -85,7 +85,7 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
         <h2 id="dp-palette-title">${esc(boot.strings.palette)}</h2>
         <input type="search" class="dp-search" placeholder="Search commands" />
         <div class="dp-cmd-list"></div>
-        <form class="dp-cmd-form"></form>
+        <div class="dp-cmd-form"></div>
         <pre class="dp-preview-src"></pre>
         <div class="dp-modal__actions">
           <button type="button" data-insert>Insert</button>
@@ -100,7 +100,7 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
   const modal = root.querySelector(".dp-modal") as HTMLElement;
   const search = root.querySelector(".dp-search") as HTMLInputElement;
   const list = root.querySelector(".dp-cmd-list") as HTMLElement;
-  const form = root.querySelector(".dp-cmd-form") as HTMLFormElement;
+  const form = root.querySelector(".dp-cmd-form") as HTMLElement;
   const previewSrc = root.querySelector(".dp-preview-src") as HTMLElement;
   sourceEl.value = source;
 
@@ -255,7 +255,19 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
 
   const closePalette = () => {
     modal.hidden = true;
+    form.innerHTML = "";
     sourceEl.focus();
+  };
+
+  const insertSelected = () => {
+    const insert = snippet();
+    const start = sourceEl.selectionStart ?? source.length;
+    const end = sourceEl.selectionEnd ?? start;
+    source = source.slice(0, start) + insert + source.slice(end);
+    syncFallback();
+    sourceEl.selectionStart = sourceEl.selectionEnd = start + insert.length;
+    closePalette();
+    sourceEl.dispatchEvent(new Event("input"));
   };
 
   const renderList = () => {
@@ -308,13 +320,12 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
     field: { name: string; type: string; required?: boolean; choices?: string[]; default?: unknown },
     positional: boolean
   ) => {
-    const req = field.required ? " required" : "";
     if (field.choices?.length) {
-      return `<label>${esc(field.name)} <select data-arg="${esc(field.name)}" data-pos="${positional ? "1" : "0"}"${req}>${field.choices
+      return `<label>${esc(field.name)} <select data-arg="${esc(field.name)}" data-pos="${positional ? "1" : "0"}">${field.choices
         .map((c) => `<option ${String(field.default) === c ? "selected" : ""}>${esc(c)}</option>`)
         .join("")}</select></label>`;
     }
-    return `<label>${esc(field.name)} <input data-arg="${esc(field.name)}" data-pos="${positional ? "1" : "0"}" value="${esc(String(field.default ?? ""))}"${req} /></label>`;
+    return `<label>${esc(field.name)} <input data-arg="${esc(field.name)}" data-pos="${positional ? "1" : "0"}" value="${esc(String(field.default ?? ""))}" /></label>`;
   };
 
   list.addEventListener("click", (event) => {
@@ -324,18 +335,20 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
     renderList();
   });
   search.addEventListener("input", renderList);
+  search.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") event.preventDefault();
+  });
   form.addEventListener("input", () => {
     previewSrc.textContent = snippet();
   });
-  modal.querySelector("[data-insert]")?.addEventListener("click", () => {
-    const insert = snippet();
-    const start = sourceEl.selectionStart;
-    source = source.slice(0, start) + insert + source.slice(sourceEl.selectionEnd);
-    syncFallback();
-    sourceEl.selectionStart = sourceEl.selectionEnd = start + insert.length;
-    closePalette();
-    sourceEl.dispatchEvent(new Event("input"));
+  modal.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const target = event.target as HTMLElement;
+    if (target.closest("[data-cancel], .dp-cmd, textarea")) return;
+    event.preventDefault();
+    insertSelected();
   });
+  modal.querySelector("[data-insert]")?.addEventListener("click", insertSelected);
   modal.querySelector("[data-cancel]")?.addEventListener("click", closePalette);
 
   renderedEl.addEventListener("click", (event) => {
