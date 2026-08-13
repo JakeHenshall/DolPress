@@ -17,6 +17,16 @@ interface CommandRegistryInterface {
 	public function has( string $code ): bool;
 
 	/**
+	 * @return list<string>
+	 */
+	public function codes(): array;
+
+	/**
+	 * @return list<string>
+	 */
+	public function paired(): array;
+
+	/**
 	 * @return list<array<string, mixed>>
 	 */
 	public function schemas(): array;

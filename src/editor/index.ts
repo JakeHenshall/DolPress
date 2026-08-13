@@ -1,3 +1,5 @@
+import { bindDocumentActions } from "../runtime/actions";
+
 type Boot = {
   postId: number;
   source: string;
@@ -15,7 +17,7 @@ type Boot = {
       named?: Array<{ name: string; type: string; required?: boolean; choices?: string[]; default?: unknown }>;
     };
   }>;
-  rest: { root: string; nonce: string; preview: string; schema: string; post: string };
+  rest: { root: string; nonce: string; preview: string; schema: string; post: string; form?: string; bins?: string; macro?: string };
   safeModeUrl: string;
   previewUrl: string;
   workerUrl: string;
@@ -62,6 +64,9 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
           <button type="button" data-mode="split" role="tab">${esc(boot.strings.split)}</button>
         </div>
         <button type="button" class="dp-palette-btn" data-action="palette">${esc(boot.strings.palette)}</button>
+        <button type="button" data-action="insert-tree">Tree</button>
+        <button type="button" data-action="insert-field">Field</button>
+        <button type="button" data-action="insert-sprite">Sprite</button>
         <a class="dp-safe" href="${esc(boot.safeModeUrl)}">${esc(boot.strings.recovery)}</a>
       </div>
       <div class="dp-workspace">
@@ -103,6 +108,7 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
   const form = root.querySelector(".dp-cmd-form") as HTMLElement;
   const previewSrc = root.querySelector(".dp-preview-src") as HTMLElement;
   sourceEl.value = source;
+  const known = boot.commands.map((c) => c.code);
 
   const worker = boot.workerUrl ? new Worker(boot.workerUrl) : null;
   worker?.addEventListener("message", (event: MessageEvent<{ id: number; result: { diagnostics: Diag[] } }>) => {
@@ -129,11 +135,20 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
     sourceEl.value = source;
   };
 
+  const insertAtCursor = (snippet: string) => {
+    const start = sourceEl.selectionStart ?? source.length;
+    const end = sourceEl.selectionEnd ?? start;
+    source = source.slice(0, start) + snippet + source.slice(end);
+    syncFallback();
+    sourceEl.selectionStart = sourceEl.selectionEnd = start + snippet.length;
+    sourceEl.dispatchEvent(new Event("input"));
+  };
+
   const scheduleParse = () => {
     window.clearTimeout(previewTimer);
     previewTimer = window.setTimeout(() => {
       parseId += 1;
-      worker?.postMessage({ id: parseId, source });
+      worker?.postMessage({ id: parseId, source, known });
       void refreshPreview();
     }, 120);
   };
@@ -220,6 +235,19 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
   });
 
   root.querySelector("[data-action=palette]")?.addEventListener("click", () => openPalette());
+  root.querySelector("[data-action=insert-tree]")?.addEventListener("click", () => insertAtCursor('$TR,"Branch"$\n$ID,2$\n\n$ID,-2$\n'));
+  root.querySelector("[data-action=insert-field]")?.addEventListener("click", () => insertAtCursor('$DA,KEY="subtitle"$\n'));
+  root.querySelector("[data-action=insert-sprite]")?.addEventListener("click", () => {
+    insertAtCursor("$SP,BI=1$\n");
+    void window.wp?.apiFetch?.({
+      url: boot.rest.bins,
+      method: "POST",
+      data: {
+        postId: boot.postId,
+        bins: [{ num: 1, tag: "line", data: btoa(JSON.stringify({ ops: [{ t: "line", x1: 0, y1: 0, x2: 40, y2: 24, c: 4 }] })) }],
+      },
+    });
+  });
 
   document.addEventListener("keydown", (event) => {
     const meta = event.metaKey || event.ctrlKey;
@@ -261,13 +289,8 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
 
   const insertSelected = () => {
     const insert = snippet();
-    const start = sourceEl.selectionStart ?? source.length;
-    const end = sourceEl.selectionEnd ?? start;
-    source = source.slice(0, start) + insert + source.slice(end);
-    syncFallback();
-    sourceEl.selectionStart = sourceEl.selectionEnd = start + insert.length;
+    insertAtCursor(insert);
     closePalette();
-    sourceEl.dispatchEvent(new Event("input"));
   };
 
   const renderList = () => {
@@ -351,13 +374,11 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
   modal.querySelector("[data-insert]")?.addEventListener("click", insertSelected);
   modal.querySelector("[data-cancel]")?.addEventListener("click", closePalette);
 
-  renderedEl.addEventListener("click", (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLElement>("[data-dolpress-action]");
-    if (!button) return;
-    const action = button.getAttribute("data-dolpress-action");
-    if (action === "top") window.scrollTo({ top: 0, behavior: "smooth" });
-    if (action === "print") window.print();
-    if (action === "toggle-source") setMode(mode === "source" ? "rendered" : "source");
+  bindDocumentActions(renderedEl, {
+    toggleSource: () => setMode(mode === "source" ? "rendered" : "source"),
+    postId: boot.postId,
+    formUrl: boot.rest.form,
+    macroUrl: boot.rest.macro,
   });
 
   setMode(mode);

@@ -36,6 +36,8 @@ final class ThreatModel {
 				'query_limits'      => true,
 				'recursion_guards'  => true,
 				'cache_separation'  => true,
+				'action_allowlist'  => true,
+				'html_code_opt_in'  => true,
 			),
 			'abuseCases'      => array(
 				'arbitrary_php'       => 'Commands cannot include PHP or callbacks from source.',

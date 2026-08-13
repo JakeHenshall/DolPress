@@ -34,13 +34,22 @@ export type ParseResult = {
   diagnostics: Diagnostic[];
 };
 
-const KNOWN = new Set([
+const CORE_KNOWN = [
   "TX", "CR", "FG", "BG", "UL", "IV", "HL", "LK", "BT", "TR", "IM", "HR",
   "WS", "WG", "WT", "WA", "WN", "WL", "WP", "WC", "WX", "WM", "WB",
-]);
+  "SR", "TB", "PB", "PL", "LM", "RM", "HD", "FO", "ID", "FD", "BD", "WW", "BK",
+  "SX", "SY", "CM", "AN", "MK", "CU", "PT", "CL",
+  "DA", "CB", "LS", "MU", "HX", "MA", "SP", "SO", "HC",
+];
+let KNOWN = new Set(CORE_KNOWN);
 const PAIRED = new Set(["TR"]);
 
-export function parse(source: string, limits = { maxBytes: 102400, maxTokens: 20000, maxCommands: 200, maxNest: 8 }): ParseResult {
+export function setKnownCodes(codes: string[]): void {
+  KNOWN = new Set(codes.length ? codes.map((c) => c.toUpperCase()) : CORE_KNOWN);
+}
+
+export function parse(source: string, limits = { maxBytes: 102400, maxTokens: 20000, maxCommands: 200, maxNest: 8 }, known?: string[]): ParseResult {
+  if (known?.length) setKnownCodes(known);
   const diagnostics: Diagnostic[] = [];
   let input = source;
   if (input.length > limits.maxBytes) {
@@ -207,9 +216,16 @@ export function parse(source: string, limits = { maxBytes: 102400, maxTokens: 20
 
   while (stack.length) {
     const open = stack.pop()!;
+    if (open.code === "TR") {
+      append(open.node);
+      for (const child of open.children) append(child);
+      continue;
+    }
     diagnostics.push(diag("error", "E_UNCLOSED", `Command $${open.code}$ was not closed.`, open.node.line, open.node.column, open.node.offset, open.node.length));
     append({ ...open.node, children: open.children, malformed: true });
   }
+
+  const normalised = normalizeTrees(children);
 
   function readCode(): string {
     let out = "";
@@ -299,10 +315,82 @@ export function parse(source: string, limits = { maxBytes: 102400, maxTokens: 20
   }
 
   return {
-    grammar: "0.1",
-    document: { type: "document", children },
+    grammar: "0.2",
+    document: { type: "document", children: normalised },
     diagnostics,
   };
+}
+
+function indentDelta(node: Extract<Node, { type: "command" }>): number {
+  for (const arg of node.arguments) {
+    if (arg.name === "DELTA" || arg.name === "N" || arg.name === "") {
+      if (typeof arg.value === "number") return arg.value;
+      if (typeof arg.value === "string" && /^-?\d+$/.test(arg.value)) return parseInt(arg.value, 10);
+    }
+  }
+  return 0;
+}
+
+function withChildren(node: Extract<Node, { type: "command" }>, children: Node[]): Extract<Node, { type: "command" }> {
+  return { ...node, children };
+}
+
+function normalizeTrees(nodes: Node[]): Node[] {
+  const out: Node[] = [];
+  let i = 0;
+  while (i < nodes.length) {
+    const node = nodes[i];
+    if (node.type === "command" && node.code === "TR" && node.children.length === 0) {
+      const { body, consumed } = collectBody(nodes, i + 1);
+      out.push(withChildren(node, normalizeTrees(body)));
+      i += 1 + consumed;
+      continue;
+    }
+    out.push(normalizeNode(node));
+    i += 1;
+  }
+  return out;
+}
+
+function collectBody(nodes: Node[], start: number): { body: Node[]; consumed: number } {
+  const body: Node[] = [];
+  let indent = 0;
+  let started = false;
+  let i = start;
+  while (i < nodes.length) {
+    const node = nodes[i];
+    if (node.type === "command" && node.code === "ID") {
+      const delta = indentDelta(node);
+      if (!started) {
+        if (delta <= 0) return { body: [], consumed: 0 };
+        started = true;
+        indent += delta;
+        body.push(normalizeNode(node));
+        i += 1;
+        continue;
+      }
+      indent += delta;
+      body.push(normalizeNode(node));
+      i += 1;
+      if (indent <= 0) return { body, consumed: i - start };
+      continue;
+    }
+    if (!started) return { body: [], consumed: 0 };
+    if (node.type === "command" && node.code === "TR" && node.children.length === 0) {
+      const inner = collectBody(nodes, i + 1);
+      body.push(withChildren(node, normalizeTrees(inner.body)));
+      i += 1 + inner.consumed;
+      continue;
+    }
+    body.push(normalizeNode(node));
+    i += 1;
+  }
+  return started ? { body, consumed: i - start } : { body: [], consumed: 0 };
+}
+
+function normalizeNode(node: Node): Node {
+  if (node.type === "command" && node.children.length) return withChildren(node, normalizeTrees(node.children));
+  return node;
 }
 
 function diag(severity: string, code: string, message: string, line: number, column: number, offset: number, length: number, help?: string): Diagnostic {

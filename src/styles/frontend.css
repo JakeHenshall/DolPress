@@ -82,6 +82,63 @@
 .dolpress-fg.dolpress-colour-cyan { color: #088; }
 .dolpress-bg.dolpress-colour-black { background: #000; }
 
+.dolpress-colour-black { color: #000; }
+.dolpress-colour-blue { color: #00f; }
+.dolpress-colour-green { color: #080; }
+.dolpress-colour-cyan { color: #088; }
+.dolpress-colour-red { color: #c00; }
+.dolpress-colour-purple { color: #a0a; }
+.dolpress-colour-brown { color: #a50; }
+.dolpress-colour-ltgray { color: #aaa; }
+.dolpress-colour-dkgray { color: #555; }
+.dolpress-colour-ltblue { color: #55f; }
+.dolpress-colour-ltgreen { color: #5f5; }
+.dolpress-colour-ltcyan { color: #5ff; }
+.dolpress-colour-ltred { color: #f55; }
+.dolpress-colour-ltpurple { color: #f5f; }
+.dolpress-colour-yellow { color: #a50; }
+.dolpress-colour-white { color: #fff; }
+
+.dolpress-bg-black { background: #000; }
+.dolpress-bg-blue { background: #00a; }
+.dolpress-bg-green { background: #080; }
+.dolpress-bg-cyan { background: #088; }
+.dolpress-bg-red { background: #a00; }
+.dolpress-bg-purple { background: #a0a; }
+.dolpress-bg-brown { background: #a50; }
+.dolpress-bg-ltgray { background: #aaa; }
+.dolpress-bg-dkgray { background: #555; }
+.dolpress-bg-ltblue { background: #55f; }
+.dolpress-bg-ltgreen { background: #5f5; }
+.dolpress-bg-ltcyan { background: #5ff; }
+.dolpress-bg-ltred { background: #f55; }
+.dolpress-bg-ltpurple { background: #f5f; }
+.dolpress-bg-yellow { background: #ff5; }
+.dolpress-bg-white { background: #fff; }
+
+.dolpress-nowrap { white-space: nowrap; }
+.dolpress-tb { white-space: pre; }
+.dolpress-pb { break-after: page; }
+.dolpress-an { display: inline-block; width: 0; height: 0; overflow: hidden; }
+.dolpress-tr { margin: 0 0 1em; }
+.dolpress-tr__body { margin-left: 1em; }
+.dolpress-da,
+.dolpress-cb,
+.dolpress-ls { display: block; margin: 0 0 0.75em; }
+.dolpress-da__input,
+.dolpress-ls select { max-width: 100%; }
+.dolpress-form__submit { margin: 1em 0; }
+.dolpress-sp { display: inline-block; vertical-align: middle; max-width: 100%; height: auto; }
+.dolpress-hx { font-family: ui-monospace, monospace; font-size: 0.85em; overflow: auto; }
+.dolpress-so,
+.dolpress-ma,
+.dolpress-mu { margin: 0 0.25em 0.25em 0; }
+.dolpress-bk { animation: dolpress-blink 1s step-end infinite; }
+
+@keyframes dolpress-blink {
+  50% { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dolpress-document * {
     animation: none !important;

@@ -12,4 +12,4 @@ define( 'DOLPRESS_URL', 'https://example.test/wp-content/plugins/dolpress/' );
 define( 'DOLPRESS_BASENAME', 'dolpress/dolpress.php' );
 define( 'DOLPRESS_MIN_PHP', '8.1' );
 define( 'DOLPRESS_MIN_WP', '6.7' );
-define( 'DOLPRESS_GRAMMAR_VERSION', '0.1' );
+define( 'DOLPRESS_GRAMMAR_VERSION', '0.2' );

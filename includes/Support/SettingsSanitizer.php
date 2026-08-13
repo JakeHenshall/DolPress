@@ -36,6 +36,8 @@ final class SettingsSanitizer {
 			'max_render_ms'          => 1500,
 			'cache_enabled'          => true,
 			'fallback_behaviour'     => 'escaped',
+			'html_code_enabled'      => false,
+			'allowed_macros'         => array(),
 			'uninstall_delete_data'  => false,
 			'global_disable'         => false,
 		);
@@ -72,12 +74,20 @@ final class SettingsSanitizer {
 			$meta_keys = is_array( $split ) ? $split : array();
 		}
 
+		$macros = $raw['allowed_macros'] ?? array();
+		if ( is_string( $macros ) ) {
+			$split  = preg_split( '/[\s,]+/', $macros );
+			$macros = is_array( $split ) ? $split : array();
+		}
+
 		return array(
 			'enabled_post_types'     => PostTypePolicy::sanitise_enabled( array_values( $types ), $is_public_post_type ),
 			'default_mode'           => in_array( $mode, self::MODES, true ) ? $mode : $defaults['default_mode'],
 			'strict_diagnostics'     => self::to_bool( $raw['strict_diagnostics'] ?? false ),
 			'public_invalid_command' => in_array( $invalid, self::INVALID_COMMAND_BEHAVIOURS, true ) ? $invalid : $defaults['public_invalid_command'],
 			'allowed_meta_keys'      => self::sanitise_meta_keys( is_array( $meta_keys ) ? $meta_keys : array() ),
+			'allowed_macros'         => self::sanitise_macro_names( is_array( $macros ) ? $macros : array() ),
+			'html_code_enabled'      => self::to_bool( $raw['html_code_enabled'] ?? false ),
 			'max_loop_count'         => self::clamp_int( $raw['max_loop_count'] ?? $defaults['max_loop_count'], 1, 20, 10 ),
 			'max_command_count'      => self::clamp_int( $raw['max_command_count'] ?? $defaults['max_command_count'], 10, 1000, 200 ),
 			'max_source_bytes'       => self::clamp_int( $raw['max_source_bytes'] ?? $defaults['max_source_bytes'], 1024, 1048576, 102400 ),
@@ -114,6 +124,26 @@ final class SettingsSanitizer {
 				continue;
 			}
 
+			$clean[] = $slug;
+		}
+
+		return array_values( array_unique( $clean ) );
+	}
+
+	/**
+	 * @param list<mixed> $names
+	 * @return list<string>
+	 */
+	public static function sanitise_macro_names( array $names ): array {
+		$clean = array();
+		foreach ( $names as $name ) {
+			if ( ! is_string( $name ) ) {
+				continue;
+			}
+			$slug = strtolower( trim( $name ) );
+			if ( ! preg_match( '/^[a-z0-9_-]{1,64}$/', $slug ) ) {
+				continue;
+			}
 			$clean[] = $slug;
 		}
 

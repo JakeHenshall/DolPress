@@ -229,6 +229,15 @@
   background: var(--dp-yellow);
 }
 
+.dp-rendered .dolpress-document {
+  padding: 12px;
+  color: var(--dp-yellow);
+}
+
+.dp-rendered .dolpress-sp {
+  background: var(--dp-black);
+}
+
 @media (max-width: 782px) {
   .dp-shell[data-mode="split"] .dp-workspace {
     grid-template-columns: 1fr;

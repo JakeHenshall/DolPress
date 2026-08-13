@@ -17,10 +17,12 @@ ident = ( letter | digit | "_" ) { letter | digit | "_" } ;
 
 paired_open = "$TR" { flag } [ "," argument { "," argument } ] "$" ;
 paired_close = "$/TR$" ;
-tree = paired_open grammar paired_close ;
+tree = paired_open grammar paired_close
+     | "$TR" { flag } [ "," argument { "," argument } ] "$" "$ID" { flag } "," number "$" grammar "$ID" { flag } "," number "$" ;
 
 (* Commands never evaluate expressions. Arguments are data. *)
 (* Unknown commands remain in the AST and are not executed. *)
 (* A malformed command recovers at the next '$' and parsing continues. *)
 (* Line endings CR, LF, and CRLF are accepted. Columns are 1-based. *)
-(* Grammar version is independent of plugin version: 0.1 *)
+(* Unclosed $TR$ is valid; indent $ID$ attaches the tree body. *)
+(* Grammar version is independent of plugin version: 0.2 *)

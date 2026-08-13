@@ -84,6 +84,9 @@ final class EditorScreen {
 				'preview' => rest_url( 'dolpress/v1/preview' ),
 				'schema'  => rest_url( 'dolpress/v1/commands' ),
 				'post'    => rest_url( 'wp/v2/' . $this->rest_base( $post ) . '/' . $post->ID ),
+				'form'    => rest_url( 'dolpress/v1/form' ),
+				'bins'    => rest_url( 'dolpress/v1/bins' ),
+				'macro'   => rest_url( 'dolpress/v1/macro' ),
 			),
 			'capabilities' => array(
 				'edit'    => current_user_can( 'edit_post', $post->ID ),

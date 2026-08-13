@@ -13,4 +13,6 @@ use Nought\DolPress\Parser\ParseResult;
 
 interface ParserInterface {
 	public function parse( string $source ): ParseResult;
+
+	public function refresh_known(): void;
 }

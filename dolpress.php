@@ -29,7 +29,7 @@ define( 'DOLPRESS_URL', plugin_dir_url( __FILE__ ) );
 define( 'DOLPRESS_BASENAME', plugin_basename( __FILE__ ) );
 define( 'DOLPRESS_MIN_PHP', '8.1' );
 define( 'DOLPRESS_MIN_WP', '6.7' );
-define( 'DOLPRESS_GRAMMAR_VERSION', '0.1' );
+define( 'DOLPRESS_GRAMMAR_VERSION', '0.2' );
 
 require_once DOLPRESS_PATH . 'includes/Autoloader.php';
 

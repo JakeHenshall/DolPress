@@ -63,3 +63,10 @@ function dolpress_register_command( string $code, array $args ): void {
 		}
 	);
 }
+
+/**
+ * Register a named document macro. The name must also be allowlisted in settings.
+ */
+function dolpress_register_macro( string $name, callable $callback ): void {
+	\Nought\DolPress\Commands\ActionRegistry::register( $name, $callback );
+}

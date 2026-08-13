@@ -1,11 +1,19 @@
 $TX+CX,"WELCOME TO THE TEMPLE"$
 $CR$
+$AN,A="intro"$
 $WG,SIZE=96,LINK=home$
 $CR$
 $WS,FIELD="name"$
 $CR$
 $FG,YELLOW$
 This site is powered by DolPress, a DolDoc-inspired editor by Nought Digital.
+$CR$
+$MA,"Back to top",ACTION="top"$
+$CR$
+$TR,"More"$
+$ID,2$
+Native indent trees, sprites, forms, and allowlisted macros live in this document language. HolyC is never executed.
+$ID,-2$
 $CR$
 $WN,LOCATION="primary",DEPTH=2$
 $CR$

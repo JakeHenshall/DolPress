@@ -11,39 +11,35 @@ namespace Nought\DolPress\Parser;
 
 require_once __DIR__ . '/Ast.php';
 
+use Nought\DolPress\Contracts\CommandRegistryInterface;
 use Nought\DolPress\Contracts\ParserInterface;
 use Nought\DolPress\Support\SettingsRepository;
 
 final class Parser implements ParserInterface {
-	public const KNOWN_CODES = array(
-		'TX',
-		'CR',
-		'FG',
-		'BG',
-		'UL',
-		'IV',
-		'HL',
-		'LK',
-		'BT',
-		'TR',
-		'IM',
-		'HR',
-		'WS',
-		'WG',
-		'WT',
-		'WA',
-		'WN',
-		'WL',
-		'WP',
-		'WC',
-		'WX',
-		'WM',
-		'WB',
-	);
+	/**
+	 * @var list<string>
+	 */
+	private array $known;
 
-	public const PAIRED = array( 'TR' );
+	/**
+	 * @var list<string>
+	 */
+	private array $paired;
 
-	public function __construct( private readonly ?SettingsRepository $settings = null ) {}
+	public function __construct(
+		private readonly ?SettingsRepository $settings = null,
+		private readonly ?CommandRegistryInterface $commands = null
+	) {
+		$this->known  = $commands ? $commands->codes() : Codes::CORE;
+		$this->paired = $commands ? $commands->paired() : Codes::PAIRED;
+	}
+
+	public function refresh_known(): void {
+		if ( $this->commands ) {
+			$this->known  = $this->commands->codes();
+			$this->paired = $this->commands->paired();
+		}
+	}
 
 	public function parse( string $source ): ParseResult {
 		$lexer       = new Lexer( $this->settings );
@@ -143,7 +139,7 @@ final class Parser implements ParserInterface {
 			}
 
 			$code      = strtoupper( (string) ( $payload['code'] ?? '' ) );
-			$unknown   = ! in_array( $code, self::KNOWN_CODES, true );
+			$unknown   = ! in_array( $code, $this->known, true );
 			$malformed = false;
 			$flags     = is_array( $payload['flags'] ?? null ) ? $payload['flags'] : array();
 			$arguments = is_array( $payload['arguments'] ?? null ) ? $payload['arguments'] : array();
@@ -176,7 +172,7 @@ final class Parser implements ParserInterface {
 				$token->column
 			);
 
-			if ( in_array( $code, self::PAIRED, true ) ) {
+			if ( in_array( $code, $this->paired, true ) ) {
 				if ( count( $stack ) >= $max_nest ) {
 					$diagnostics[] = new Diagnostic(
 						'error',
@@ -203,7 +199,15 @@ final class Parser implements ParserInterface {
 		}
 
 		while ( array() !== $stack ) {
-			$open          = array_pop( $stack );
+			$open = array_pop( $stack );
+			if ( 'TR' === $open['code'] ) {
+				$this->append( $children, $stack, $open['node'] );
+				foreach ( $open['children'] as $inner ) {
+					$this->append( $children, $stack, $inner );
+				}
+				continue;
+			}
+
 			$diagnostics[] = new Diagnostic(
 				'error',
 				'E_UNCLOSED',
@@ -231,6 +235,7 @@ final class Parser implements ParserInterface {
 			$this->append( $children, $stack, $closed );
 		}
 
+		$children = ( new TreeNormalizer() )->normalize( $children );
 		$document = new DocumentNode( $children, 0, strlen( $source ) );
 
 		return new ParseResult( $document, $diagnostics, $source );

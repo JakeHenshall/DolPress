@@ -47,6 +47,17 @@ final class Autoloader {
 			'Commands/LoopCommand'         => 'Commands/WordPressCommands.php',
 			'Commands/CommentsCommand'     => 'Commands/WordPressCommands.php',
 			'Commands/MetaCommand'         => 'Commands/WordPressCommands.php',
+			'Commands/LayoutCommand'       => 'Commands/LayoutCommands.php',
+			'Commands/AnchorCommand'       => 'Commands/LayoutCommands.php',
+			'Commands/IndentCommand'       => 'Commands/LayoutCommands.php',
+			'Commands/DataCommand'         => 'Commands/WidgetCommands.php',
+			'Commands/CheckBoxCommand'     => 'Commands/WidgetCommands.php',
+			'Commands/ListCommand'         => 'Commands/WidgetCommands.php',
+			'Commands/MenuValCommand'      => 'Commands/WidgetCommands.php',
+			'Commands/HexCommand'          => 'Commands/WidgetCommands.php',
+			'Commands/SpriteCommand'       => 'Commands/SpriteCommands.php',
+			'Commands/SongCommand'         => 'Commands/SpriteCommands.php',
+			'Commands/HtmlCodeCommand'     => 'Commands/SpriteCommands.php',
 		);
 
 		$file = DOLPRESS_PATH . 'includes/' . ( $bundles[ str_replace( '\\', '/', $relative ) ] ?? $relative . '.php' );

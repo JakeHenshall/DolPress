@@ -12,6 +12,7 @@ namespace Nought\DolPress\Rendering;
 use Nought\DolPress\Contracts\CommandRegistryInterface;
 use Nought\DolPress\Contracts\ParserInterface;
 use Nought\DolPress\Contracts\RendererInterface;
+use Nought\DolPress\Parser\Codes;
 use Nought\DolPress\Parser\CommandNode;
 use Nought\DolPress\Parser\Diagnostic;
 use Nought\DolPress\Parser\Node;
@@ -19,7 +20,6 @@ use Nought\DolPress\Parser\TextNode;
 use Nought\DolPress\Support\SettingsRepository;
 
 final class Renderer implements RendererInterface {
-	private const BLOCK_CODES = array( 'HR', 'IM', 'TR', 'WB', 'WN', 'WL', 'WC', 'WG' );
 	private const ALIGN_FLAGS = array( 'CX', 'L', 'R' );
 
 	public function __construct(
@@ -32,10 +32,20 @@ final class Renderer implements RendererInterface {
 		$started     = microtime( true );
 		$parsed      = $this->parser->parse( $source );
 		$diagnostics = $parsed->diagnostics;
-		$html        = $this->nodes( $parsed->document->children, $context, $diagnostics );
+		$style       = new StyleState();
+		$html        = $this->nodes( $parsed->document->children, $context, $diagnostics, $style );
 		$max_ms      = (int) $this->settings->get( 'max_render_ms', 1500 );
 		if ( ( microtime( true ) - $started ) * 1000 > $max_ms ) {
 			$diagnostics[] = new Diagnostic( 'warning', 'W_RENDER_SLOW', 'Render exceeded the time budget.', 1, 1, 0, 0 );
+		}
+
+		if ( $style->has_form && $context->post_id > 0 ) {
+			$html = sprintf(
+				'<form class="dolpress-form" method="post" data-dolpress-post="%d">%s<button type="submit" class="dolpress-form__submit" data-dolpress-action="submit-form">%s</button></form>',
+				$context->post_id,
+				$html,
+				esc_html__( 'Save fields', 'dolpress' )
+			);
 		}
 
 		$html = '<div class="dolpress-document">' . $html . '</div>';
@@ -49,7 +59,7 @@ final class Renderer implements RendererInterface {
 	 * @param list<Node> $nodes
 	 * @param list<Diagnostic> $diagnostics
 	 */
-	private function nodes( array $nodes, RenderContext $context, array &$diagnostics ): string {
+	private function nodes( array $nodes, RenderContext $context, array &$diagnostics, StyleState $style ): string {
 		$html   = '';
 		$inline = '';
 
@@ -65,7 +75,7 @@ final class Renderer implements RendererInterface {
 
 		foreach ( $nodes as $node ) {
 			if ( $node instanceof TextNode ) {
-				$inline = $this->append_text( $inline, $node->value );
+				$inline .= $style->wrap( $this->collapse_text( $node->value ) );
 				continue;
 			}
 
@@ -74,7 +84,7 @@ final class Renderer implements RendererInterface {
 				continue;
 			}
 
-			$chunk = $this->command_html( $node, $context, $diagnostics );
+			$chunk = $this->command_html( $node, $context, $diagnostics, $style );
 			if ( '' === $chunk ) {
 				continue;
 			}
@@ -96,7 +106,7 @@ final class Renderer implements RendererInterface {
 	/**
 	 * @param list<Diagnostic> $diagnostics
 	 */
-	private function command_html( Node $node, RenderContext $context, array &$diagnostics ): string {
+	private function command_html( Node $node, RenderContext $context, array &$diagnostics, StyleState $style ): string {
 		if ( ! $node instanceof CommandNode ) {
 			return '';
 		}
@@ -128,8 +138,18 @@ final class Renderer implements RendererInterface {
 		}
 
 		$arguments = $validated['arguments'];
+		$code      = strtoupper( $node->code );
+		if ( in_array( $code, Codes::STATE, true ) ) {
+			$this->apply_state( $code, $arguments, $style );
+			return '';
+		}
+
+		if ( in_array( $code, array( 'DA', 'CB', 'LS' ), true ) ) {
+			$style->has_form = true;
+		}
+
 		if ( array() !== $node->children ) {
-			$arguments['_children'] = $this->nodes( $node->children, $context, $diagnostics );
+			$arguments['_children'] = $this->nodes( $node->children, $context, $diagnostics, clone $style );
 		}
 
 		try {
@@ -148,13 +168,67 @@ final class Renderer implements RendererInterface {
 		}
 	}
 
+	/**
+	 * @param array<string, mixed> $arguments
+	 */
+	private function apply_state( string $code, array $arguments, StyleState $style ): void {
+		$colour = isset( $arguments['COLOR'] ) ? strtolower( (string) $arguments['COLOR'] ) : null;
+		$n      = (int) ( $arguments['N'] ?? $arguments['DELTA'] ?? 0 );
+
+		switch ( $code ) {
+			case 'FG':
+			case 'FD':
+				$style->fg = $colour;
+				break;
+			case 'BG':
+			case 'BD':
+				$style->bg = $colour;
+				break;
+			case 'UL':
+				$style->ul = ! $style->ul;
+				break;
+			case 'IV':
+				$style->iv = ! $style->iv;
+				break;
+			case 'HL':
+				$style->hl = ! $style->hl;
+				break;
+			case 'WW':
+				$style->ww = ! $style->ww;
+				break;
+			case 'BK':
+				$style->bk = ! $style->bk;
+				break;
+			case 'ID':
+				$style->indent = max( 0, $style->indent + $n );
+				break;
+			case 'LM':
+				$style->lm = $n;
+				break;
+			case 'RM':
+				$style->rm = $n;
+				break;
+			case 'PL':
+				$style->pl = $n;
+				break;
+			case 'SX':
+				$style->sx = $n;
+				break;
+			case 'SY':
+				$style->sy = $n;
+				break;
+			default:
+				break;
+		}
+	}
+
 	private function is_block( Node $node ): bool {
 		if ( ! $node instanceof CommandNode ) {
 			return false;
 		}
 
 		$code = strtoupper( $node->code );
-		if ( in_array( $code, self::BLOCK_CODES, true ) ) {
+		if ( in_array( $code, Codes::BLOCK, true ) ) {
 			return true;
 		}
 
@@ -165,19 +239,15 @@ final class Renderer implements RendererInterface {
 		return false;
 	}
 
-	private function append_text( string $inline, string $value ): string {
+	private function collapse_text( string $value ): string {
 		$collapsed = preg_replace( '/[ \t]*\R[ \t]*/', ' ', str_replace( array( "\r\n", "\r" ), "\n", $value ) );
 		$collapsed = is_string( $collapsed ) ? $collapsed : $value;
 
 		if ( '' === trim( $collapsed ) ) {
-			if ( '' !== $inline && ! str_ends_with( $inline, ' ' ) ) {
-				return $inline . ' ';
-			}
-
-			return $inline;
+			return '';
 		}
 
-		return $inline . Html::text( $collapsed );
+		return Html::text( $collapsed );
 	}
 
 	private function unknown( CommandNode $node, RenderContext $context ): string {

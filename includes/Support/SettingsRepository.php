@@ -82,4 +82,17 @@ final class SettingsRepository {
 	public function is_meta_key_allowed( string $key ): bool {
 		return in_array( $key, $this->allowed_meta_keys(), true );
 	}
+
+	/**
+	 * @return list<string>
+	 */
+	public function allowed_macros(): array {
+		$names = $this->get( 'allowed_macros', array() );
+
+		return is_array( $names ) ? array_values( $names ) : array();
+	}
+
+	public function html_code_enabled(): bool {
+		return (bool) $this->get( 'html_code_enabled', false );
+	}
 }

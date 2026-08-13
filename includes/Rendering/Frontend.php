@@ -71,17 +71,34 @@ final class Frontend {
 			return;
 		}
 
-		$path = DOLPRESS_PATH . 'assets/dist/frontend.css';
-		if ( ! is_readable( $path ) ) {
-			return;
+		$style = DOLPRESS_PATH . 'assets/dist/frontend.css';
+		if ( is_readable( $style ) ) {
+			wp_enqueue_style(
+				'dolpress-frontend',
+				DOLPRESS_URL . 'assets/dist/frontend.css',
+				array(),
+				DOLPRESS_VERSION
+			);
 		}
 
-		wp_enqueue_style(
-			'dolpress-frontend',
-			DOLPRESS_URL . 'assets/dist/frontend.css',
-			array(),
-			DOLPRESS_VERSION
-		);
+		$script = DOLPRESS_PATH . 'assets/dist/frontend.js';
+		if ( is_readable( $script ) ) {
+			wp_enqueue_script(
+				'dolpress-frontend',
+				DOLPRESS_URL . 'assets/dist/frontend.js',
+				array(),
+				DOLPRESS_VERSION,
+				true
+			);
+			wp_localize_script(
+				'dolpress-frontend',
+				'dolpressFront',
+				array(
+					'rest'  => esc_url_raw( rest_url( 'dolpress/v1/' ) ),
+					'nonce' => wp_create_nonce( 'wp_rest' ),
+				)
+			);
+		}
 	}
 
 	private function fallback( string $source, int $post_id ): string {

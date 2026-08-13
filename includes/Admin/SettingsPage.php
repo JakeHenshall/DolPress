@@ -57,6 +57,8 @@ final class SettingsPage {
 		$this->add_field( 'strict_diagnostics', __( 'Strict publishing diagnostics', 'dolpress' ), 'render_checkbox', __( 'Warn authors before publishing documents with structural errors.', 'dolpress' ) );
 		$this->add_field( 'public_invalid_command', __( 'Public invalid-command behaviour', 'dolpress' ), 'render_invalid_command' );
 		$this->add_field( 'allowed_meta_keys', __( 'Allowed public meta keys', 'dolpress' ), 'render_meta_keys' );
+		$this->add_field( 'allowed_macros', __( 'Allowed named macros', 'dolpress' ), 'render_macros' );
+		$this->add_field( 'html_code_enabled', __( 'Allow $HC$ HTML', 'dolpress' ), 'render_checkbox', __( 'Emit kses-filtered HTML from $HC$. Off by default.', 'dolpress' ) );
 		$this->add_field( 'max_loop_count', __( 'Maximum loops per document', 'dolpress' ), 'render_number' );
 		$this->add_field( 'max_command_count', __( 'Maximum commands per document', 'dolpress' ), 'render_number' );
 		$this->add_field( 'cache_enabled', __( 'Cache rendered output', 'dolpress' ), 'render_checkbox' );
@@ -155,6 +157,19 @@ final class SettingsPage {
 			esc_textarea( implode( "\n", $keys ) )
 		);
 		echo '<p class="description">' . esc_html__( 'One public meta key per line. Keys beginning with an underscore are rejected.', 'dolpress' ) . '</p>';
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 */
+	public function render_macros( array $args ): void {
+		$names = $this->settings->allowed_macros();
+		printf(
+			'<textarea id="dolpress_allowed_macros" name="%s[allowed_macros]" rows="4" cols="40" class="large-text code">%s</textarea>',
+			esc_attr( SettingsRepository::OPTION_KEY ),
+			esc_textarea( implode( "\n", $names ) )
+		);
+		echo '<p class="description">' . esc_html__( 'Named plugin macros that may run from $MA$. Built-in actions (top, print, jump, url) do not need listing.', 'dolpress' ) . '</p>';
 	}
 
 	/**
