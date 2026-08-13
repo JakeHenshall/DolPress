@@ -56,10 +56,10 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
   root.innerHTML = `
     <div class="dp-shell" role="application" aria-label="DolPress editor">
       <div class="dp-toolbar">
-        <div class="dp-modes" role="tablist">
-          <button type="button" data-mode="source"></button>
-          <button type="button" data-mode="rendered"></button>
-          <button type="button" data-mode="split"></button>
+        <div class="dp-modes" role="tablist" aria-label="Editor view">
+          <button type="button" data-mode="source" role="tab">${esc(boot.strings.source)}</button>
+          <button type="button" data-mode="rendered" role="tab">${esc(boot.strings.rendered)}</button>
+          <button type="button" data-mode="split" role="tab">${esc(boot.strings.split)}</button>
         </div>
         <button type="button" class="dp-palette-btn" data-action="palette">${esc(boot.strings.palette)}</button>
         <a class="dp-safe" href="${esc(boot.safeModeUrl)}">${esc(boot.strings.recovery)}</a>
@@ -115,11 +115,10 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
   const setMode = (next: Boot["mode"]) => {
     mode = next;
     root.querySelector(".dp-shell")?.setAttribute("data-mode", mode);
-    root.querySelectorAll("[data-mode]").forEach((btn) => {
+    root.querySelectorAll(".dp-modes [data-mode]").forEach((btn) => {
       const active = btn.getAttribute("data-mode") === mode;
       btn.classList.toggle("is-active", active);
       btn.setAttribute("aria-selected", active ? "true" : "false");
-      btn.textContent = boot.strings[btn.getAttribute("data-mode") || "source"] || "";
     });
     void window.wp?.apiFetch?.({ path: "/dolpress/v1/mode", method: "POST", data: { mode } });
     renderStatus();
@@ -216,7 +215,7 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
     renderStatus();
   });
 
-  root.querySelectorAll("[data-mode]").forEach((btn) => {
+  root.querySelectorAll(".dp-modes [data-mode]").forEach((btn) => {
     btn.addEventListener("click", () => setMode((btn.getAttribute("data-mode") as Boot["mode"]) || "source"));
   });
 
