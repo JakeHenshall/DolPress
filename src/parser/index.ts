@@ -200,9 +200,9 @@ export function parse(source: string, limits = { maxBytes: 102400, maxTokens: 20
       column: cmdCol,
     };
 
-    if (PAIRED.has(code)) {
+    if (PAIRED.has(code) && !(code === "TR" && looksLikeIndentTree(i))) {
       if (stack.length >= limits.maxNest) {
-        diagnostics.push(diag("error", "E_NESTING_LIMIT", "Nesting exceeds the maximum depth.", cmdLine, cmdCol, cmdStart, i - cmdStart));
+        diagnostics.push(diag("error", "E_NESTING_LIMIT", `Nesting exceeds the maximum depth of ${limits.maxNest}.`, cmdLine, cmdCol, cmdStart, i - cmdStart));
         append(node);
       } else {
         stack.push({ code, node, children: [] });
@@ -225,7 +225,28 @@ export function parse(source: string, limits = { maxBytes: 102400, maxTokens: 20
     append({ ...open.node, children: open.children, malformed: true });
   }
 
-  const normalised = normalizeTrees(children);
+  const normalised = normalizeTrees(children, diagnostics, limits.maxNest, 0);
+
+  function looksLikeIndentTree(from: number): boolean {
+    let j = from;
+    while (j < input.length && /[ \t\r\n]/.test(input[j] || "")) j += 1;
+    if (input[j] !== "$") return false;
+    j += 1;
+    const next = (input.slice(j, j + 2) || "").toUpperCase();
+    if (next !== "ID") return false;
+    j += 2;
+    while (input[j] === "+") {
+      j += 1;
+      while (/[A-Za-z0-9_]/.test(input[j] || "")) j += 1;
+    }
+    while (input[j] === " " || input[j] === "\t") j += 1;
+    if (input[j] !== ",") return false;
+    j += 1;
+    while (input[j] === " " || input[j] === "\t") j += 1;
+    if (input[j] === "+") j += 1;
+    if (input[j] === "-") return false;
+    return /\d/.test(input[j] || "");
+  }
 
   function readCode(): string {
     let out = "";
@@ -272,7 +293,7 @@ export function parse(source: string, limits = { maxBytes: 102400, maxTokens: 20
 
   function readNumber(): number {
     const startOff = i;
-    if (input[i] === "-") advance();
+    if (input[i] === "-" || input[i] === "+") advance();
     while (/\d/.test(input[i] || "")) advance();
     if (input[i] === "." && /\d/.test(input[i + 1] || "")) {
       advance();
@@ -284,7 +305,7 @@ export function parse(source: string, limits = { maxBytes: 102400, maxTokens: 20
 
   function readValue(): Argument {
     if (input[i] === '"') return { name: "", value: readString(), kind: "string" };
-    if (/\d/.test(input[i] || "") || (input[i] === "-" && /\d/.test(input[i + 1] || ""))) {
+    if (/\d/.test(input[i] || "") || ((input[i] === "-" || input[i] === "+") && /\d/.test(input[i + 1] || ""))) {
       return { name: "", value: readNumber(), kind: "number" };
     }
     const ident = readIdent();
@@ -297,7 +318,7 @@ export function parse(source: string, limits = { maxBytes: 102400, maxTokens: 20
     skipSpaces();
     if (!input[i] || input[i] === "$") return null;
     if (input[i] === '"') return { name: "", value: readString(), kind: "string" };
-    if (/\d/.test(input[i]) || (input[i] === "-" && /\d/.test(input[i + 1] || ""))) {
+    if (/\d/.test(input[i]) || ((input[i] === "-" || input[i] === "+") && /\d/.test(input[i + 1] || ""))) {
       return { name: "", value: readNumber(), kind: "number" };
     }
     const ident = readIdent();
@@ -325,7 +346,7 @@ function indentDelta(node: Extract<Node, { type: "command" }>): number {
   for (const arg of node.arguments) {
     if (arg.name === "DELTA" || arg.name === "N" || arg.name === "") {
       if (typeof arg.value === "number") return arg.value;
-      if (typeof arg.value === "string" && /^-?\d+$/.test(arg.value)) return parseInt(arg.value, 10);
+      if (typeof arg.value === "string" && /^[+-]?\d+$/.test(arg.value)) return parseInt(arg.value, 10);
     }
   }
   return 0;
@@ -335,61 +356,81 @@ function withChildren(node: Extract<Node, { type: "command" }>, children: Node[]
   return { ...node, children };
 }
 
-function normalizeTrees(nodes: Node[]): Node[] {
+function nestLimit(diagnostics: Diagnostic[], node: Extract<Node, { type: "command" }>, maxNest: number, depth: number): void {
+  if (depth < maxNest) return;
+  diagnostics.push(diag("error", "E_NESTING_LIMIT", `Nesting exceeds the maximum depth of ${maxNest}.`, node.line, node.column, node.offset, node.length));
+}
+
+function normalizeTrees(nodes: Node[], diagnostics: Diagnostic[], maxNest: number, depth: number): Node[] {
   const out: Node[] = [];
   let i = 0;
   while (i < nodes.length) {
     const node = nodes[i];
     if (node.type === "command" && node.code === "TR" && node.children.length === 0) {
-      const { body, consumed } = collectBody(nodes, i + 1);
-      out.push(withChildren(node, normalizeTrees(body)));
+      nestLimit(diagnostics, node, maxNest, depth);
+      const { body, consumed } = collectBody(nodes, i + 1, diagnostics, maxNest, depth + 1);
+      out.push(withChildren(node, normalizeTrees(body, diagnostics, maxNest, depth + 1)));
       i += 1 + consumed;
       continue;
     }
-    out.push(normalizeNode(node));
+    out.push(normalizeNode(node, diagnostics, maxNest, depth));
     i += 1;
   }
   return out;
 }
 
-function collectBody(nodes: Node[], start: number): { body: Node[]; consumed: number } {
+function collectBody(
+  nodes: Node[],
+  start: number,
+  diagnostics: Diagnostic[],
+  maxNest: number,
+  depth: number
+): { body: Node[]; consumed: number } {
   const body: Node[] = [];
   let indent = 0;
   let started = false;
   let i = start;
   while (i < nodes.length) {
     const node = nodes[i];
-    if (node.type === "command" && node.code === "ID") {
-      const delta = indentDelta(node);
-      if (!started) {
-        if (delta <= 0) return { body: [], consumed: 0 };
-        started = true;
-        indent += delta;
-        body.push(normalizeNode(node));
+    if (!started) {
+      if (node.type === "text" && node.value.trim() === "") {
         i += 1;
         continue;
       }
-      indent += delta;
-      body.push(normalizeNode(node));
+      if (node.type === "command" && node.code === "ID") {
+        const delta = indentDelta(node);
+        if (delta <= 0) return { body: [], consumed: 0 };
+        for (let k = start; k < i; k += 1) body.push(nodes[k]);
+        started = true;
+        indent += delta;
+        body.push(normalizeNode(node, diagnostics, maxNest, depth));
+        i += 1;
+        continue;
+      }
+      return { body: [], consumed: 0 };
+    }
+    if (node.type === "command" && node.code === "ID") {
+      indent += indentDelta(node);
+      body.push(normalizeNode(node, diagnostics, maxNest, depth));
       i += 1;
       if (indent <= 0) return { body, consumed: i - start };
       continue;
     }
-    if (!started) return { body: [], consumed: 0 };
     if (node.type === "command" && node.code === "TR" && node.children.length === 0) {
-      const inner = collectBody(nodes, i + 1);
-      body.push(withChildren(node, normalizeTrees(inner.body)));
+      nestLimit(diagnostics, node, maxNest, depth);
+      const inner = collectBody(nodes, i + 1, diagnostics, maxNest, depth + 1);
+      body.push(withChildren(node, normalizeTrees(inner.body, diagnostics, maxNest, depth + 1)));
       i += 1 + inner.consumed;
       continue;
     }
-    body.push(normalizeNode(node));
+    body.push(normalizeNode(node, diagnostics, maxNest, depth));
     i += 1;
   }
   return started ? { body, consumed: i - start } : { body: [], consumed: 0 };
 }
 
-function normalizeNode(node: Node): Node {
-  if (node.type === "command" && node.children.length) return withChildren(node, normalizeTrees(node.children));
+function normalizeNode(node: Node, diagnostics: Diagnostic[], maxNest: number, depth: number): Node {
+  if (node.type === "command" && node.children.length) return withChildren(node, normalizeTrees(node.children, diagnostics, maxNest, depth));
   return node;
 }
 

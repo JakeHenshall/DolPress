@@ -53,7 +53,9 @@ final class Parser implements ParserInterface {
 		$max_cmds = (int) ( $this->settings?->get( 'max_command_count', 200 ) ?? 200 );
 		$commands = 0;
 
-		foreach ( $tokens as $token ) {
+		$token_count = count( $tokens );
+		for ( $ti = 0; $ti < $token_count; $ti++ ) {
+			$token = $tokens[ $ti ];
 			if ( Token::EOF === $token->kind ) {
 				break;
 			}
@@ -172,7 +174,7 @@ final class Parser implements ParserInterface {
 				$token->column
 			);
 
-			if ( in_array( $code, $this->paired, true ) ) {
+			if ( in_array( $code, $this->paired, true ) && ! $this->is_indent_scoped_tree( $code, $tokens, $ti ) ) {
 				if ( count( $stack ) >= $max_nest ) {
 					$diagnostics[] = new Diagnostic(
 						'error',
@@ -235,7 +237,7 @@ final class Parser implements ParserInterface {
 			$this->append( $children, $stack, $closed );
 		}
 
-		$children = ( new TreeNormalizer() )->normalize( $children );
+		$children = ( new TreeNormalizer( $max_nest ) )->normalize( $children, $diagnostics );
 		$document = new DocumentNode( $children, 0, strlen( $source ) );
 
 		return new ParseResult( $document, $diagnostics, $source );
@@ -253,5 +255,43 @@ final class Parser implements ParserInterface {
 
 		$index                         = count( $stack ) - 1;
 		$stack[ $index ]['children'][] = $node;
+	}
+
+	/**
+	 * Native DolDoc trees are widgets followed by $ID,+n$, not $/TR$ pairs.
+	 *
+	 * @param list<Token> $tokens
+	 */
+	private function is_indent_scoped_tree( string $code, array $tokens, int $index ): bool {
+		if ( 'TR' !== $code ) {
+			return false;
+		}
+
+		$count = count( $tokens );
+		for ( $i = $index + 1; $i < $count; $i++ ) {
+			$token = $tokens[ $i ];
+			if ( Token::TEXT === $token->kind ) {
+				if ( '' === trim( $token->value ) ) {
+					continue;
+				}
+
+				return false;
+			}
+
+			if ( Token::COMMAND_START !== $token->kind ) {
+				return false;
+			}
+
+			$payload = json_decode( $token->value, true );
+			if ( ! is_array( $payload ) || 'ID' !== strtoupper( (string) ( $payload['code'] ?? '' ) ) ) {
+				return false;
+			}
+
+			$arguments = is_array( $payload['arguments'] ?? null ) ? $payload['arguments'] : array();
+
+			return TreeNormalizer::delta_from_arguments( $arguments ) > 0;
+		}
+
+		return false;
 	}
 }

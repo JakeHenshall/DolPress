@@ -263,7 +263,7 @@ final class Lexer {
 			);
 		}
 
-		if ( $this->is_digit( $char ) || ( '-' === $char && $this->is_digit( $this->peek( 1 ) ) ) ) {
+		if ( $this->is_number_start() ) {
 			return array(
 				'name'  => '',
 				'value' => $this->read_number(),
@@ -323,7 +323,7 @@ final class Lexer {
 			);
 		}
 
-		if ( $this->is_digit( $char ) || ( '-' === $char && $this->is_digit( $this->peek( 1 ) ) ) ) {
+		if ( $this->is_number_start() ) {
 			return array(
 				'value' => $this->read_number(),
 				'kind'  => 'number',
@@ -379,9 +379,22 @@ final class Lexer {
 		return $buffer;
 	}
 
+	private function is_number_start(): bool {
+		if ( $this->index >= $this->length ) {
+			return false;
+		}
+
+		$char = $this->source[ $this->index ];
+		if ( $this->is_digit( $char ) ) {
+			return true;
+		}
+
+		return ( '-' === $char || '+' === $char ) && $this->is_digit( $this->peek( 1 ) );
+	}
+
 	private function read_number(): int|float {
 		$start = $this->index;
-		if ( '-' === $this->source[ $this->index ] ) {
+		if ( '-' === $this->source[ $this->index ] || '+' === $this->source[ $this->index ] ) {
 			$this->advance();
 		}
 

@@ -72,6 +72,44 @@ final class CommandsAndSecurityTest extends TestCase {
 		$this->assertCount( 3, $tree->children );
 	}
 
+	public function test_indent_tree_allows_newlines_between_widget_and_id(): void {
+		$parser = new Parser();
+		$result = $parser->parse( "\$TR,\"Branch\"\$\n\$ID,2\$\nHi\n\$ID,-2\$" );
+		$tree   = $result->document->children[0];
+		$codes  = array_map( static fn( $item ) => $item->code, $result->diagnostics );
+		$this->assertInstanceOf( CommandNode::class, $tree );
+		$this->assertSame( 'TR', $tree->code );
+		$this->assertNotEmpty( $tree->children );
+		$this->assertNotContains( 'E_NESTING_LIMIT', $codes );
+	}
+
+	public function test_sibling_indent_trees_do_not_hit_nesting_limit(): void {
+		$block  = "\$TR,\"Branch\"\$\n\$ID,2\$\n\n\$ID,-2\$\n";
+		$parser = new Parser();
+		$result = $parser->parse( str_repeat( $block, 9 ) );
+		$codes  = array_map( static fn( $item ) => $item->code, $result->diagnostics );
+		$trees  = array_values(
+			array_filter(
+				$result->document->children,
+				static fn( $node ) => $node instanceof CommandNode && 'TR' === $node->code
+			)
+		);
+		$this->assertNotContains( 'E_NESTING_LIMIT', $codes );
+		$this->assertCount( 9, $trees );
+	}
+
+	public function test_nested_indent_trees_respect_max_depth(): void {
+		$source = '';
+		for ( $i = 0; $i < 9; $i++ ) {
+			$source .= '$TR,"B"$$ID,2$';
+		}
+		$source .= 'x' . str_repeat( '$ID,-2$', 9 );
+		$parser = new Parser();
+		$result = $parser->parse( $source );
+		$codes  = array_map( static fn( $item ) => $item->code, $result->diagnostics );
+		$this->assertContains( 'E_NESTING_LIMIT', $codes );
+	}
+
 	public function test_sprite_decoder_line_svg(): void {
 		$svg = ( new Decoder() )->to_svg( Decoder::encode_line( 0, 0, 10, 10, 4, 1 ) );
 		$this->assertStringContainsString( '<svg', $svg );
