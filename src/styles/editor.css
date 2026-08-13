@@ -104,6 +104,73 @@
   overflow: auto;
 }
 
+.dp-rendered .dolpress-document {
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+  color: var(--dp-yellow);
+  background: var(--dp-blue);
+  padding: 12px;
+}
+
+.dp-rendered .dolpress-document br.dolpress-cr {
+  display: inline;
+}
+
+.dp-rendered .dolpress-tx {
+  display: inline;
+  margin: 0;
+}
+
+.dp-rendered .dolpress-tx--center,
+.dp-rendered .dolpress-tx--left,
+.dp-rendered .dolpress-tx--right {
+  display: block;
+  margin: 0;
+}
+
+.dp-rendered .dolpress-lk {
+  color: var(--dp-ltcyan);
+}
+
+.dp-rendered .dolpress-bt {
+  background: var(--dp-ltgray);
+  color: var(--dp-black);
+  border: 2px solid var(--dp-white);
+}
+
+.dp-rendered .dolpress-hl {
+  background: var(--dp-yellow);
+  color: var(--dp-black);
+}
+
+.dp-rendered .dolpress-iv {
+  background: var(--dp-yellow);
+  color: var(--dp-blue);
+}
+
+.dp-rendered .dolpress-fg.dolpress-colour-yellow {
+  color: var(--dp-yellow);
+}
+
+.dp-rendered .dolpress-fg.dolpress-colour-white {
+  color: var(--dp-white);
+}
+
+.dp-rendered .dolpress-fg.dolpress-colour-red {
+  color: var(--dp-ltred);
+}
+
+.dp-rendered .dolpress-fg.dolpress-colour-green {
+  color: var(--dp-ltgreen);
+}
+
+.dp-rendered .dolpress-fg.dolpress-colour-cyan {
+  color: var(--dp-ltcyan);
+}
+
+.dp-rendered .dolpress-fg.dolpress-colour-blue {
+  color: var(--dp-ltblue);
+}
+
 .dp-diags {
   max-height: 8rem;
   overflow: auto;

@@ -60,7 +60,11 @@ final class Renderer implements RendererInterface {
 	 */
 	private function node( Node $node, RenderContext $context, array &$diagnostics ): string {
 		if ( $node instanceof TextNode ) {
-			return nl2br( Html::text( $node->value ), false );
+			if ( '' === trim( $node->value ) ) {
+				return Html::text( $node->value );
+			}
+
+			return '<p>' . nl2br( Html::text( $node->value ), false ) . '</p>';
 		}
 
 		if ( ! $node instanceof CommandNode ) {

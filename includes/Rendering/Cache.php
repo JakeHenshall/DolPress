@@ -92,6 +92,6 @@ final class Cache {
 	}
 
 	private function hash( string $source, RenderContext $context ): string {
-		return hash( 'sha256', $source . '|' . wp_json_encode( $context->cache_key_parts() ) );
+		return hash( 'sha256', DOLPRESS_VERSION . '|html-p|' . $source . '|' . wp_json_encode( $context->cache_key_parts() ) );
 	}
 }
