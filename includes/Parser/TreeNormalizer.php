@@ -153,6 +153,9 @@ final class TreeNormalizer {
 		return self::delta_from_arguments( $node->arguments );
 	}
 
+	/**
+	 * @param list<Diagnostic> $diagnostics
+	 */
 	private function normalize_node( Node $node, array &$diagnostics, int $depth ): Node {
 		if ( $node instanceof CommandNode && array() !== $node->children ) {
 			return $this->with_children( $node, $this->normalize( $node->children, $diagnostics, $depth ) );
