@@ -74,7 +74,7 @@ final class DocumentController {
 		}
 
 		$saved = array();
-		foreach ( $values as $key => $value ) {
+		foreach ( array_slice( $values, 0, 100, true ) as $key => $value ) {
 			$key = is_string( $key ) ? $key : (string) $key;
 			if ( ! $this->settings->is_meta_key_allowed( $key ) || str_starts_with( $key, '_' ) ) {
 				continue;
@@ -82,7 +82,7 @@ final class DocumentController {
 			if ( is_array( $value ) || is_object( $value ) ) {
 				continue;
 			}
-			$clean = sanitize_text_field( (string) $value );
+			$clean = sanitize_text_field( substr( (string) $value, 0, 4096 ) );
 			update_post_meta( $post_id, $key, $clean );
 			$saved[] = $key;
 		}
@@ -117,7 +117,8 @@ final class DocumentController {
 		}
 
 		$bins = array();
-		foreach ( $raw as $item ) {
+		$max  = (int) $this->settings->get( 'max_media_count', 40 );
+		foreach ( array_slice( $raw, 0, $max ) as $item ) {
 			if ( ! is_array( $item ) ) {
 				continue;
 			}

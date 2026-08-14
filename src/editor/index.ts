@@ -17,7 +17,7 @@ type Boot = {
       named?: Array<{ name: string; type: string; required?: boolean; choices?: string[]; default?: unknown }>;
     };
   }>;
-  rest: { root: string; nonce: string; preview: string; schema: string; post: string; form?: string; bins?: string; macro?: string };
+  rest: { root: string; nonce: string; preview: string; schema: string; post: string; autosave: string; form?: string; bins?: string; macro?: string };
   safeModeUrl: string;
   previewUrl: string;
   workerUrl: string;
@@ -54,14 +54,16 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
   let parseId = 0;
   let autosaveTimer = 0;
   let previewTimer = 0;
+  let previewRequest = 0;
+  let modalOpener: HTMLElement | null = null;
 
   root.innerHTML = `
     <div class="dp-shell" role="application" aria-label="DolPress editor">
       <div class="dp-toolbar">
-        <div class="dp-modes" role="tablist" aria-label="Editor view">
-          <button type="button" data-mode="source" role="tab">${esc(boot.strings.source)}</button>
-          <button type="button" data-mode="rendered" role="tab">${esc(boot.strings.rendered)}</button>
-          <button type="button" data-mode="split" role="tab">${esc(boot.strings.split)}</button>
+        <div class="dp-modes" role="group" aria-label="Editor view">
+          <button type="button" data-mode="source" aria-pressed="false">${esc(boot.strings.source)}</button>
+          <button type="button" data-mode="rendered" aria-pressed="false">${esc(boot.strings.rendered)}</button>
+          <button type="button" data-mode="split" aria-pressed="false">${esc(boot.strings.split)}</button>
         </div>
         <button type="button" class="dp-palette-btn" data-action="palette">${esc(boot.strings.palette)}</button>
         <button type="button" data-action="insert-tree">Tree</button>
@@ -76,19 +78,20 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
         </label>
         <div class="dp-rendered" tabindex="0" aria-label="${esc(boot.strings.rendered)}"></div>
       </div>
-      <div class="dp-status" role="status">
+      <div class="dp-status" role="status" aria-atomic="true">
         <span data-stat="mode"></span>
         <span data-stat="cursor"></span>
         <span data-stat="save"></span>
         <span data-stat="parse"></span>
         <span data-stat="size"></span>
       </div>
-      <div class="dp-diags" aria-live="polite"></div>
+      <div class="dp-diags" aria-live="polite" aria-atomic="false"></div>
     </div>
     <div class="dp-modal" hidden>
       <div class="dp-modal__panel" role="dialog" aria-modal="true" aria-labelledby="dp-palette-title">
         <h2 id="dp-palette-title">${esc(boot.strings.palette)}</h2>
-        <input type="search" class="dp-search" placeholder="Search commands" />
+        <label class="screen-reader-text" for="dp-command-search">Search commands</label>
+        <input id="dp-command-search" type="search" class="dp-search" placeholder="Search commands" autocomplete="off" />
         <div class="dp-cmd-list"></div>
         <div class="dp-cmd-form"></div>
         <pre class="dp-preview-src"></pre>
@@ -124,9 +127,10 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
     root.querySelectorAll(".dp-modes [data-mode]").forEach((btn) => {
       const active = btn.getAttribute("data-mode") === mode;
       btn.classList.toggle("is-active", active);
-      btn.setAttribute("aria-selected", active ? "true" : "false");
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
     });
     void window.wp?.apiFetch?.({ path: "/dolpress/v1/mode", method: "POST", data: { mode } });
+    if (mode !== "source") void refreshPreview();
     renderStatus();
   };
 
@@ -149,23 +153,26 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
     previewTimer = window.setTimeout(() => {
       parseId += 1;
       worker?.postMessage({ id: parseId, source, known });
-      void refreshPreview();
-    }, 120);
+      if (mode !== "source") void refreshPreview();
+    }, 180);
   };
 
   const refreshPreview = async () => {
+    const request = ++previewRequest;
     try {
       const res = (await window.wp?.apiFetch?.({
         url: boot.rest.preview,
         method: "POST",
         data: { postId: boot.postId, source },
       })) as { html?: string; diagnostics?: Diag[] };
+      if (request !== previewRequest) return;
       if (res?.html) renderedEl.innerHTML = res.html;
       if (res?.diagnostics) {
         diagnostics = res.diagnostics;
         renderDiags();
       }
     } catch {
+      if (request !== previewRequest) return;
       renderedEl.innerHTML = `<p class="dp-error">${esc("Preview failed. Use safe mode if the editor cannot recover.")}</p><p><a href="${esc(boot.safeModeUrl)}">${esc(boot.strings.recovery)}</a></p>`;
     }
   };
@@ -181,10 +188,12 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
         renderStatus();
         return;
       }
-      const body: Record<string, unknown> = { content: source };
-      if (asAutosave) body.status = "draft";
-      const saved = (await window.wp?.apiFetch?.({ url: boot.rest.post, method: "POST", data: body })) as { modified_gmt?: string };
-      if (saved?.modified_gmt) boot.modifiedGmt = saved.modified_gmt;
+      const saved = (await window.wp?.apiFetch?.({
+        url: asAutosave ? boot.rest.autosave : boot.rest.post,
+        method: "POST",
+        data: { content: source },
+      })) as { modified_gmt?: string };
+      if (!asAutosave && saved?.modified_gmt) boot.modifiedGmt = saved.modified_gmt;
       saveState = asAutosave ? "autosaved" : "saved";
     } catch {
       saveState = "error";
@@ -275,7 +284,10 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
   let selectedCode = boot.commands[0]?.code || "CR";
 
   const openPalette = () => {
+    modalOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     modal.hidden = false;
+    const shell = root.querySelector(".dp-shell") as HTMLElement | null;
+    if (shell) shell.inert = true;
     search.value = "";
     renderList();
     search.focus();
@@ -283,8 +295,11 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
 
   const closePalette = () => {
     modal.hidden = true;
+    const shell = root.querySelector(".dp-shell") as HTMLElement | null;
+    if (shell) shell.inert = false;
     form.innerHTML = "";
-    sourceEl.focus();
+    (modalOpener || sourceEl).focus();
+    modalOpener = null;
   };
 
   const insertSelected = () => {
@@ -365,6 +380,21 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
     previewSrc.textContent = snippet();
   });
   modal.addEventListener("keydown", (event) => {
+    if (event.key === "Tab") {
+      const focusable = Array.from(
+        modal.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]')
+      ).filter((element) => element.offsetParent !== null);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (first && last && event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (first && last && !event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+      return;
+    }
     if (event.key !== "Enter") return;
     const target = event.target as HTMLElement;
     if (target.closest("[data-cancel], .dp-cmd, textarea")) return;

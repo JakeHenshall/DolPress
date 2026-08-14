@@ -56,7 +56,7 @@ final class Frontend {
 				return $this->fallback( $content, $post->ID );
 			}
 
-			$this->cache->put( $post->ID, $post->post_content, $context, $result->html );
+			$this->cache->put( $post->ID, $post->post_content, $context, $result->html, $result->dependencies );
 
 			return $result->html;
 		} catch ( \Throwable $exception ) {
@@ -67,7 +67,12 @@ final class Frontend {
 	}
 
 	public function enqueue(): void {
-		if ( is_admin() ) {
+		if ( is_admin() || ! is_singular() || $this->safe_mode->is_globally_disabled() ) {
+			return;
+		}
+
+		$post = get_queried_object();
+		if ( ! $post instanceof \WP_Post || ! $this->settings->is_enabled_post_type( $post->post_type ) ) {
 			return;
 		}
 

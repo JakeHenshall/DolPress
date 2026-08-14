@@ -8,5 +8,5 @@
 /phpstan.cache
 .DS_Store
 *.log
-composer.lock
-package-lock.json
+/test-results/
+/playwright-report/

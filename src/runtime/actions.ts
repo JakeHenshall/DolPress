@@ -8,6 +8,7 @@ export function bindDocumentActions(
   root: HTMLElement,
   opts: { toggleSource?: () => void; postId?: number; formUrl?: string; macroUrl?: string }
 ): void {
+  const scrollBehavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
   root.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLElement>("[data-dolpress-action], [data-dolpress-song]");
     if (!button) return;
@@ -17,13 +18,13 @@ export function bindDocumentActions(
       return;
     }
     const action = button.getAttribute("data-dolpress-action");
-    if (action === "top") window.scrollTo({ top: 0, behavior: "smooth" });
+    if (action === "top") window.scrollTo({ top: 0, behavior: scrollBehavior });
     if (action === "print") window.print();
     if (action === "toggle-source") opts.toggleSource?.();
     if (action === "preview") window.open(window.location.href, "_blank", "noopener");
     if (action === "jump") {
       const target = button.getAttribute("data-dolpress-target");
-      if (target) document.getElementById(target)?.scrollIntoView({ behavior: "smooth" });
+      if (target) document.getElementById(target)?.scrollIntoView({ behavior: scrollBehavior });
     }
     if (action === "url") {
       const href = button.getAttribute("data-dolpress-url");

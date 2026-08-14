@@ -12,19 +12,31 @@ namespace Nought\DolPress\Rendering;
 use Nought\DolPress\Support\SettingsRepository;
 
 final class Cache {
-	public const META_KEY = '_dolpress_render_cache';
-	public const HASH_KEY = '_dolpress_render_hash';
-	public const SNAP_KEY = '_dolpress_snapshot';
+	public const META_KEY          = '_dolpress_render_cache';
+	public const HASH_KEY          = '_dolpress_render_hash';
+	public const SNAP_KEY          = '_dolpress_snapshot';
+	private const VERSION_PREFIX   = 'dolpress_cache_version_';
+	private const DEPENDENCY_TYPES = array( 'attachment', 'bin', 'comment', 'menu', 'meta', 'option', 'post', 'term', 'user' );
+
+	/** @var array<string, true> */
+	private array $bumped = array();
 
 	public function __construct( private readonly SettingsRepository $settings ) {}
 
 	public function register(): void {
 		add_action( 'save_post', array( $this, 'invalidate_post' ) );
 		add_action( 'deleted_post', array( $this, 'invalidate_post' ) );
-		add_action( 'edited_term', array( $this, 'flush_all' ) );
-		add_action( 'wp_update_nav_menu', array( $this, 'flush_all' ) );
-		add_action( 'comment_post', array( $this, 'flush_all' ) );
-		add_action( 'edit_comment', array( $this, 'flush_all' ) );
+		add_action( 'edited_term', fn() => $this->bump( 'term' ) );
+		add_action( 'created_term', fn() => $this->bump( 'term' ) );
+		add_action( 'delete_term', fn() => $this->bump( 'term' ) );
+		add_action( 'wp_update_nav_menu', fn() => $this->bump( 'menu' ) );
+		add_action( 'comment_post', fn() => $this->bump( 'comment' ) );
+		add_action( 'edit_comment', fn() => $this->bump( 'comment' ) );
+		add_action( 'deleted_comment', fn() => $this->bump( 'comment' ) );
+		add_action( 'profile_update', fn() => $this->bump( 'user' ) );
+		add_action( 'added_post_meta', array( $this, 'on_post_meta' ), 10, 4 );
+		add_action( 'updated_post_meta', array( $this, 'on_post_meta' ), 10, 4 );
+		add_action( 'deleted_post_meta', array( $this, 'on_post_meta' ), 10, 4 );
 		add_action( 'updated_option', array( $this, 'on_option' ) );
 	}
 
@@ -37,16 +49,23 @@ final class Cache {
 			return null;
 		}
 
-		$hash   = $this->hash( $source, $context );
 		$stored = get_post_meta( $post_id, self::META_KEY, true );
-		if ( ! is_array( $stored ) || ( $stored['hash'] ?? '' ) !== $hash ) {
+		if ( ! is_array( $stored ) || ! isset( $stored['dependencies'] ) || ! is_array( $stored['dependencies'] ) ) {
+			return null;
+		}
+
+		$hash = $this->hash( $source, $context, $stored['dependencies'] );
+		if ( ( $stored['hash'] ?? '' ) !== $hash ) {
 			return null;
 		}
 
 		return is_string( $stored['html'] ?? null ) ? $stored['html'] : null;
 	}
 
-	public function put( int $post_id, string $source, RenderContext $context, string $html ): void {
+	/**
+	 * @param array<string, mixed> $dependencies
+	 */
+	public function put( int $post_id, string $source, RenderContext $context, string $html, array $dependencies = array() ): void {
 		if ( ! $this->enabled() || $context->is_preview || ( $context->user_id > 0 && ! $context->is_editor ) ) {
 			return;
 		}
@@ -55,13 +74,15 @@ final class Cache {
 			return;
 		}
 
-		$hash = $this->hash( $source, $context );
+		$types = $this->dependency_types( $dependencies );
+		$hash  = $this->hash( $source, $context, $types );
 		update_post_meta(
 			$post_id,
 			self::META_KEY,
 			array(
-				'hash' => $hash,
-				'html' => $html,
+				'hash'         => $hash,
+				'html'         => $html,
+				'dependencies' => $types,
 			)
 		);
 		update_post_meta( $post_id, self::HASH_KEY, $hash );
@@ -71,19 +92,45 @@ final class Cache {
 	}
 
 	public function invalidate_post( int $post_id ): void {
+		if ( ( function_exists( 'wp_is_post_revision' ) && wp_is_post_revision( $post_id ) ) || ( function_exists( 'wp_is_post_autosave' ) && wp_is_post_autosave( $post_id ) ) ) {
+			return;
+		}
+
 		delete_post_meta( $post_id, self::META_KEY );
 		delete_post_meta( $post_id, self::HASH_KEY );
+		$this->bump( 'post' );
+		if ( 'attachment' === get_post_type( $post_id ) ) {
+			$this->bump( 'attachment' );
+		}
 	}
 
 	public function flush_all(): void {
-		delete_post_meta_by_key( self::META_KEY );
-		delete_post_meta_by_key( self::HASH_KEY );
+		foreach ( self::DEPENDENCY_TYPES as $type ) {
+			$this->bump( $type );
+		}
 	}
 
 	public function on_option( string $option ): void {
-		if ( in_array( $option, array( 'blogname', 'blogdescription', 'site_icon', 'home', 'siteurl' ), true ) ) {
+		if ( SettingsRepository::OPTION_KEY === $option ) {
 			$this->flush_all();
+			return;
 		}
+
+		if ( in_array( $option, array( 'blogname', 'blogdescription', 'site_icon', 'home', 'siteurl' ), true ) ) {
+			$this->bump( 'option' );
+		}
+	}
+
+	public function on_post_meta( mixed $meta_id, int $post_id, string $meta_key, mixed $meta_value = null ): void {
+		unset( $meta_id, $post_id, $meta_value );
+		if ( in_array( $meta_key, array( self::META_KEY, self::HASH_KEY, self::SNAP_KEY ), true ) ) {
+			return;
+		}
+
+		if ( '_dolpress_bins' === $meta_key ) {
+			$this->bump( 'bin' );
+		}
+		$this->bump( 'meta' );
 	}
 
 	public function snapshot( int $post_id ): string {
@@ -91,7 +138,45 @@ final class Cache {
 		return is_string( $value ) ? $value : '';
 	}
 
-	private function hash( string $source, RenderContext $context ): string {
-		return hash( 'sha256', DOLPRESS_VERSION . '|html-flow|' . $source . '|' . wp_json_encode( $context->cache_key_parts() ) );
+	/**
+	 * @param list<string> $dependencies
+	 */
+	private function hash( string $source, RenderContext $context, array $dependencies ): string {
+		$versions = array();
+		foreach ( $dependencies as $type ) {
+			$versions[ $type ] = $this->version( $type );
+		}
+
+		return hash( 'sha256', DOLPRESS_VERSION . '|html-flow|' . $source . '|' . wp_json_encode( $context->cache_key_parts() ) . '|' . wp_json_encode( $versions ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $dependencies
+	 * @return list<string>
+	 */
+	private function dependency_types( array $dependencies ): array {
+		$types   = array_values( array_intersect( array_keys( $dependencies ), self::DEPENDENCY_TYPES ) );
+		$types[] = 'option';
+		$types   = array_values( array_unique( $types ) );
+		sort( $types );
+		return $types;
+	}
+
+	private function version( string $type ): int {
+		if ( ! in_array( $type, self::DEPENDENCY_TYPES, true ) ) {
+			return 1;
+		}
+
+		return max( 1, (int) get_option( self::VERSION_PREFIX . $type, 1 ) );
+	}
+
+	private function bump( string $type ): void {
+		if ( ! in_array( $type, self::DEPENDENCY_TYPES, true ) || isset( $this->bumped[ $type ] ) ) {
+			return;
+		}
+
+		$this->bumped[ $type ] = true;
+		$key                   = self::VERSION_PREFIX . $type;
+		update_option( $key, $this->version( $type ) + 1, false );
 	}
 }

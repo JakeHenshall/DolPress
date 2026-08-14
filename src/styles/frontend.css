@@ -69,6 +69,15 @@
   padding: 0.4em 0.8em;
 }
 
+.dolpress-document :is(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+}
+
+.dolpress-document :is(button, input, select, textarea) {
+  font: inherit;
+}
+
 .dolpress-diagnostic {
   outline: 1px dashed currentColor;
 }
@@ -143,5 +152,16 @@
   .dolpress-document * {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .dolpress-document,
+  .dolpress-document * {
+    forced-color-adjust: auto;
+  }
+
+  .dolpress-document :is(a, button, input, select, textarea, summary):focus-visible {
+    outline: 3px solid Highlight;
   }
 }

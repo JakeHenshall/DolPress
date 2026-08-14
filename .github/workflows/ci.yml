@@ -18,6 +18,7 @@ jobs:
           coverage: none
           tools: composer
       - run: composer install --no-interaction --prefer-dist
+      - run: composer audit --locked
       - run: vendor/bin/phpcs
       - run: vendor/bin/phpstan analyse --memory-limit=1G
       - run: vendor/bin/phpunit
@@ -29,6 +30,81 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: npm install
+      - run: npm ci
+      - run: npm run audit
+      - run: npm run typecheck
       - run: npm run build
       - run: npm test
+      - run: npm run test:budgets
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Start isolated WordPress
+        run: |
+          docker network create dolpress-e2e
+          docker volume create dolpress-wp
+          docker run -d --name dolpress-db --network dolpress-e2e \
+            -e MARIADB_DATABASE=wordpress \
+            -e MARIADB_USER=wordpress \
+            -e MARIADB_PASSWORD=wordpress \
+            -e MARIADB_ROOT_PASSWORD=root \
+            mariadb:10.11
+          docker run -d --name dolpress-wordpress --network dolpress-e2e -p 8888:80 \
+            -e WORDPRESS_DB_HOST=dolpress-db:3306 \
+            -e WORDPRESS_DB_USER=wordpress \
+            -e WORDPRESS_DB_PASSWORD=wordpress \
+            -e WORDPRESS_DB_NAME=wordpress \
+            -v dolpress-wp:/var/www/html \
+            -v "$GITHUB_WORKSPACE:/var/www/html/wp-content/plugins/dolpress" \
+            wordpress:latest
+          for attempt in {1..60}; do
+            docker exec dolpress-wordpress test -f /var/www/html/wp-config.php && break
+            sleep 2
+          done
+          for attempt in {1..60}; do
+            curl --fail --silent http://localhost:8888/wp-admin/install.php >/dev/null && break
+            sleep 2
+          done
+      - name: Install WordPress and fixture
+        run: |
+          wp_cli() {
+            docker run --rm --network dolpress-e2e --user 33:33 \
+              -e WORDPRESS_DB_HOST=dolpress-db:3306 \
+              -e WORDPRESS_DB_USER=wordpress \
+              -e WORDPRESS_DB_PASSWORD=wordpress \
+              -e WORDPRESS_DB_NAME=wordpress \
+              -v dolpress-wp:/var/www/html \
+              -v "$GITHUB_WORKSPACE:/var/www/html/wp-content/plugins/dolpress" \
+              wordpress:cli wp "$@"
+          }
+          wp_cli core install --url=http://localhost:8888 --title="DolPress E2E" \
+            --admin_user=admin --admin_password=password --admin_email=admin@example.test --skip-email
+          wp_cli plugin activate dolpress
+          POST_ID=$(wp_cli post create --post_type=post --post_status=publish \
+            --post_title="DolPress launch verification" \
+            --post_content='$TX,"DolPress launch verification"$' --porcelain | tail -n 1)
+          echo "DOLPRESS_POST_ID=$POST_ID" >> "$GITHUB_ENV"
+      - name: Run browser and accessibility tests
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8888
+          WP_ADMIN_USER: admin
+          WP_ADMIN_PASSWORD: password
+        run: npm run test:e2e -- --project=chromium
+      - name: Container logs
+        if: failure()
+        run: docker logs dolpress-wordpress
+      - name: Clean up containers
+        if: always()
+        run: |
+          docker rm -f dolpress-wordpress dolpress-db || true
+          docker volume rm dolpress-wp || true
+          docker network rm dolpress-e2e || true
