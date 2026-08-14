@@ -41,8 +41,8 @@ final class EditorReplacement {
 	}
 
 	/**
-	 * @param bool   $use
-	 * @param string $post_type
+	 * @param mixed $use
+	 * @param mixed $post_type
 	 */
 	public function disable_block_editor_type( $use, $post_type ): bool {
 		if ( $this->safe_mode->is_globally_disabled() || $this->safe_mode->is_request_safe() ) {
@@ -70,8 +70,8 @@ final class EditorReplacement {
 	}
 
 	/**
-	 * @param bool     $replace
-	 * @param \WP_Post $post
+	 * @param mixed $replace
+	 * @param mixed $post
 	 */
 	public function replace_editor( $replace, $post ): bool {
 		if ( ! $post instanceof \WP_Post || ! $this->should_replace( $post ) ) {

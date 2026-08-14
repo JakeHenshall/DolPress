@@ -33,7 +33,7 @@ final class PostTypePolicy {
 	);
 
 	/**
-	 * @param list<string> $types
+	 * @param array<mixed> $types
 	 * @return list<string>
 	 */
 	public static function sanitise_enabled( array $types, ?callable $is_public = null ): array {

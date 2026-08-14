@@ -123,7 +123,7 @@ final class CommandRegistry implements CommandRegistryInterface {
 		$codes = array_keys( $this->commands );
 		sort( $codes );
 
-		return array_values( $codes );
+		return $codes;
 	}
 
 	/**

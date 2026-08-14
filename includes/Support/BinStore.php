@@ -80,7 +80,7 @@ final class BinStore {
 	}
 
 	/**
-	 * @param list<array<string, mixed>> $bins
+	 * @param array<mixed> $bins
 	 */
 	public function put( int $post_id, array $bins ): bool {
 		if ( $post_id < 1 || ! function_exists( 'update_post_meta' ) ) {

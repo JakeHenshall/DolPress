@@ -5,9 +5,9 @@ parameters:
     - uninstall.php
     - includes
   excludePaths:
-    - TempleOS-archive
+    - TempleOS-archive (?)
     - vendor
-    - node_modules
+    - node_modules (?)
   bootstrapFiles:
     - tests/phpstan-bootstrap.php
 includes:

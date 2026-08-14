@@ -295,7 +295,7 @@ final class LinkCommand extends AbstractCommand {
 		}
 
 		$parts  = array_map( 'trim', explode( ',', $rest ) );
-		$target = $parts[0] ?? '';
+		$target = $parts[0];
 		$extra  = $parts[1] ?? '';
 
 		if ( in_array( $type, array( 'FI', 'FA', 'FF', 'FL', 'PI', 'PF', 'PL' ), true ) ) {
@@ -355,8 +355,9 @@ final class LinkCommand extends AbstractCommand {
 					'posts_per_page' => 1,
 				)
 			);
-			if ( isset( $found[0] ) && $found[0] instanceof \WP_Post && $context->can_view_post( $found[0]->ID ) ) {
-				return (string) get_permalink( $found[0] );
+			$match = $found[0] ?? null;
+			if ( $match instanceof \WP_Post && $context->can_view_post( $match->ID ) ) {
+				return (string) get_permalink( $match );
 			}
 		}
 

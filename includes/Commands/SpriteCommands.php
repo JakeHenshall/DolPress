@@ -93,7 +93,7 @@ final class SpriteCommand extends AbstractCommand {
 	 */
 	private function import_ptr( string $ptr, RenderContext $context ): ?array {
 		$parts = array_map( 'trim', explode( ',', $ptr ) );
-		$id    = isset( $parts[0] ) && is_numeric( $parts[0] ) ? (int) $parts[0] : 0;
+		$id    = is_numeric( $parts[0] ) ? (int) $parts[0] : 0;
 		if ( $id < 1 || ! $context->can_view_attachment( $id ) ) {
 			return null;
 		}
