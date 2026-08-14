@@ -103,7 +103,7 @@ final class SpriteCommand extends AbstractCommand {
 			return null;
 		}
 
-		$data = file_get_contents( $path );
+		$data = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local attachment path from get_attached_file(), not a remote URL.
 		if ( ! is_string( $data ) || strlen( $data ) > 262144 ) {
 			return null;
 		}
