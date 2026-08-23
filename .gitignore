@@ -10,3 +10,4 @@
 *.log
 /test-results/
 /playwright-report/
+/TempleOS-archive/
