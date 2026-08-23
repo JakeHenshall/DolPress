@@ -34,6 +34,9 @@ final class RenderContext {
 		}
 	}
 
+	/** @var array<string, int> */
+	public array $anchor_ids = array();
+
 	public static function for_post( int $post_id, bool $is_preview = false, bool $is_editor = false ): self {
 		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
 

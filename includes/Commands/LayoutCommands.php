@@ -92,7 +92,7 @@ final class AnchorCommand extends AbstractCommand {
 
 	public function render( array $arguments, array $flags, RenderContext $context ): string {
 		$label = (string) ( $arguments['A'] ?? $arguments['LABEL'] ?? '' );
-		$id    = self::id_for( $label );
+		$id    = $this->allocate_id( $label, $context );
 
 		return $this->el(
 			'span',
@@ -102,6 +102,29 @@ final class AnchorCommand extends AbstractCommand {
 				'class' => 'dolpress-an',
 			)
 		);
+	}
+
+	/**
+	 * Allocates a document-unique id for an anchor element. The first anchor
+	 * with a given label keeps the base slug; repeats are suffixed so the DOM
+	 * never contains duplicate ids. Links and jump buttons intentionally keep
+	 * resolving to the base slug, i.e. the first anchor with that label.
+	 */
+	private function allocate_id( string $label, RenderContext $context ): string {
+		$base = self::id_for( $label );
+		if ( ! isset( $context->anchor_ids[ $base ] ) ) {
+			$context->anchor_ids[ $base ] = 1;
+			return $base;
+		}
+
+		$n                            = ++$context->anchor_ids[ $base ];
+		$id                           = $base . '-' . $n;
+		while ( isset( $context->anchor_ids[ $id ] ) ) {
+			$id = $base . '-' . ( ++$context->anchor_ids[ $base ] );
+		}
+		$context->anchor_ids[ $id ] = 1;
+
+		return $id;
 	}
 
 	public static function id_for( string $label ): string {

@@ -58,12 +58,12 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
   let modalOpener: HTMLElement | null = null;
 
   root.innerHTML = `
-    <div class="dp-shell" role="application" aria-label="DolPress editor">
+    <div class="dp-shell">
       <div class="dp-toolbar">
-        <div class="dp-modes" role="group" aria-label="Editor view">
-          <button type="button" data-mode="source" aria-pressed="false">${esc(boot.strings.source)}</button>
-          <button type="button" data-mode="rendered" aria-pressed="false">${esc(boot.strings.rendered)}</button>
-          <button type="button" data-mode="split" aria-pressed="false">${esc(boot.strings.split)}</button>
+        <div class="dp-modes" role="tablist" aria-label="Editor view">
+          <button type="button" role="tab" id="dp-tab-source" data-mode="source" aria-selected="false" aria-controls="dp-workspace">${esc(boot.strings.source)}</button>
+          <button type="button" role="tab" id="dp-tab-rendered" data-mode="rendered" aria-selected="false" aria-controls="dp-workspace">${esc(boot.strings.rendered)}</button>
+          <button type="button" role="tab" id="dp-tab-split" data-mode="split" aria-selected="false" aria-controls="dp-workspace">${esc(boot.strings.split)}</button>
         </div>
         <button type="button" class="dp-palette-btn" data-action="palette">${esc(boot.strings.palette)}</button>
         <button type="button" data-action="insert-tree">Tree</button>
@@ -71,12 +71,12 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
         <button type="button" data-action="insert-sprite">Sprite</button>
         <a class="dp-safe" href="${esc(boot.safeModeUrl)}">${esc(boot.strings.recovery)}</a>
       </div>
-      <div class="dp-workspace">
+      <div class="dp-workspace" id="dp-workspace">
         <label class="dp-source-wrap" for="dolpress-source">
           <span class="screen-reader-text">${esc(boot.strings.source)}</span>
           <textarea id="dolpress-source" class="dp-source" spellcheck="false" aria-label="${esc(boot.strings.source)}"></textarea>
         </label>
-        <div class="dp-rendered" tabindex="0" aria-label="${esc(boot.strings.rendered)}"></div>
+        <div class="dp-rendered" role="region" tabindex="0" aria-label="${esc(boot.strings.rendered)}"></div>
       </div>
       <div class="dp-status" role="status" aria-atomic="true">
         <span data-stat="mode"></span>
@@ -86,6 +86,7 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
         <span data-stat="size"></span>
       </div>
       <div class="dp-diags" aria-live="polite" aria-atomic="false"></div>
+      <div class="dp-live screen-reader-text" role="status" aria-live="polite"></div>
     </div>
     <div class="dp-modal" hidden>
       <div class="dp-modal__panel" role="dialog" aria-modal="true" aria-labelledby="dp-palette-title">
@@ -121,13 +122,24 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
     renderDiags();
   });
 
+  const announce = (text: string) => {
+    const live = root.querySelector(".dp-live");
+    if (live) {
+      live.textContent = "";
+      window.setTimeout(() => {
+        if (live) live.textContent = text;
+      }, 30);
+    }
+  };
+
   const setMode = (next: Boot["mode"]) => {
     mode = next;
     root.querySelector(".dp-shell")?.setAttribute("data-mode", mode);
-    root.querySelectorAll(".dp-modes [data-mode]").forEach((btn) => {
+    root.querySelectorAll<HTMLElement>(".dp-modes [role=tab]").forEach((btn) => {
       const active = btn.getAttribute("data-mode") === mode;
       btn.classList.toggle("is-active", active);
-      btn.setAttribute("aria-pressed", active ? "true" : "false");
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+      btn.tabIndex = active ? 0 : -1;
     });
     void window.wp?.apiFetch?.({ path: "/dolpress/v1/mode", method: "POST", data: { mode } });
     if (mode !== "source") void refreshPreview();
@@ -171,9 +183,11 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
         diagnostics = res.diagnostics;
         renderDiags();
       }
+      announce("Preview updated.");
     } catch {
       if (request !== previewRequest) return;
       renderedEl.innerHTML = `<p class="dp-error">${esc("Preview failed. Use safe mode if the editor cannot recover.")}</p><p><a href="${esc(boot.safeModeUrl)}">${esc(boot.strings.recovery)}</a></p>`;
+      announce("Preview failed.");
     }
   };
 
@@ -186,6 +200,7 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
       if (current?.modified_gmt && current.modified_gmt !== boot.modifiedGmt && current.content?.raw !== source) {
         saveState = "conflict";
         renderStatus();
+        announce("Save blocked: the document changed elsewhere. Review changes before saving.");
         return;
       }
       const saved = (await window.wp?.apiFetch?.({
@@ -197,6 +212,7 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
       saveState = asAutosave ? "autosaved" : "saved";
     } catch {
       saveState = "error";
+      announce("Save failed.");
     }
     renderStatus();
   };
@@ -243,6 +259,26 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
     btn.addEventListener("click", () => setMode((btn.getAttribute("data-mode") as Boot["mode"]) || "source"));
   });
 
+  const modesEl = root.querySelector(".dp-modes");
+  if (modesEl) {
+    modesEl.addEventListener("keydown", (event) => {
+      if (!("key" in event)) return;
+      const key = (event as KeyboardEvent).key;
+      if (key !== "ArrowLeft" && key !== "ArrowRight" && key !== "Home" && key !== "End") return;
+      const tabs = Array.from(root.querySelectorAll<HTMLElement>(".dp-modes [role=tab]"));
+      const current = tabs.indexOf(document.activeElement as HTMLElement);
+      if (-1 === current) return;
+      event.preventDefault();
+      let next = current;
+      if ("ArrowLeft" === key) next = (current + tabs.length - 1) % tabs.length;
+      if ("ArrowRight" === key) next = (current + 1) % tabs.length;
+      if ("Home" === key) next = 0;
+      if ("End" === key) next = tabs.length - 1;
+      tabs[next]?.focus();
+      setMode((tabs[next]?.getAttribute("data-mode") as Boot["mode"]) || "source");
+    });
+  }
+
   root.querySelector("[data-action=palette]")?.addEventListener("click", () => openPalette());
   root.querySelector("[data-action=insert-tree]")?.addEventListener("click", () => insertAtCursor('$TR,"Branch"$\n$ID,2$\n\n$ID,-2$\n'));
   root.querySelector("[data-action=insert-field]")?.addEventListener("click", () => insertAtCursor('$DA,KEY="subtitle"$\n'));
@@ -260,15 +296,19 @@ async function startEditor(boot: Boot, root: HTMLElement, fallback: HTMLTextArea
 
   document.addEventListener("keydown", (event) => {
     const meta = event.metaKey || event.ctrlKey;
-    if (meta && event.key.toLowerCase() === "s") {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    // Shortcuts only apply when focus is inside the editor surface; otherwise
+    // browser-native combos (Cmd+T new tab, Cmd+L address bar, Cmd+S save page) win.
+    if (!target || (!target.closest(".dp-shell") && !target.closest(".dp-modal"))) return;
+    if (meta && "s" === event.key.toLowerCase()) {
       event.preventDefault();
       void save(false);
     }
-    if (meta && event.key.toLowerCase() === "t") {
+    if (meta && "t" === event.key.toLowerCase()) {
       event.preventDefault();
       setMode(mode === "source" ? "rendered" : "source");
     }
-    if (meta && event.key.toLowerCase() === "l") {
+    if (meta && "l" === event.key.toLowerCase()) {
       event.preventDefault();
       openPalette();
     }

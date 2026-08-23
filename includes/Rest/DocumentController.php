@@ -57,6 +57,16 @@ final class DocumentController {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'run_macro' ),
 				'permission_callback' => array( $this, 'can_edit' ),
+				'args'                => array(
+					'name'   => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'postId' => array(
+						'type'     => 'integer',
+						'required' => true,
+					),
+				),
 			)
 		);
 	}
@@ -137,10 +147,14 @@ final class DocumentController {
 	}
 
 	public function run_macro( \WP_REST_Request $request ): \WP_REST_Response {
-		$name    = ActionRegistry::sanitise_name( (string) $request->get_param( 'name' ) );
-		$payload = $request->get_param( 'payload' );
-		if ( ! is_array( $payload ) ) {
-			$payload = array();
+		$name = ActionRegistry::sanitise_name( (string) $request->get_param( 'name' ) );
+
+		// Payload values are untrusted request input; extension callbacks must
+		// treat them as such. Keys are normalised to scalar-only, depth-limited
+		// string/int/bool leaves before they reach third-party code.
+		$payload = $this->sanitise_payload( $request->get_param( 'payload' ) );
+		if ( null === $payload ) {
+			return new \WP_REST_Response( array( 'ok' => false ), 400 );
 		}
 		$payload['postId'] = (int) $request->get_param( 'postId' );
 
@@ -161,5 +175,43 @@ final class DocumentController {
 			),
 			$ok ? 200 : 403
 		);
+	}
+
+	/**
+	 * Normalises a macro payload to scalar leaves (string/int/float/bool) with a
+	 * bounded key count, entry size, and depth. Returns null for unusable input.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function sanitise_payload( mixed $payload ): ?array {
+		if ( null === $payload ) {
+			return array();
+		}
+
+		if ( ! is_array( $payload ) || count( $payload ) > 20 ) {
+			return null;
+		}
+
+		$clean = array();
+		foreach ( $payload as $raw_key => $value ) {
+			$key = sanitize_key( (string) $raw_key );
+			if ( '' === $key || isset( $clean[ $key ] ) ) {
+				continue;
+			}
+
+			if ( is_scalar( $value ) ) {
+				$clean[ $key ] = is_string( $value ) ? mb_substr( sanitize_text_field( $value ), 0, 1000 ) : $value;
+				continue;
+			}
+
+			if ( is_array( $value ) && 1 === count( $value ) ) {
+				$only = array_values( $value )[0];
+				if ( is_scalar( $only ) ) {
+					$clean[ $key ] = is_string( $only ) ? mb_substr( sanitize_text_field( (string) $only ), 0, 1000 ) : $only;
+				}
+			}
+		}
+
+		return $clean;
 	}
 }

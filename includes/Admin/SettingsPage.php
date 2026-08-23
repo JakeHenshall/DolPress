@@ -52,7 +52,7 @@ final class SettingsPage {
 			'dolpress'
 		);
 
-		$this->add_field( 'enabled_post_types', __( 'Enabled post types', 'dolpress' ), 'render_post_types' );
+		$this->add_field( 'enabled_post_types', __( 'Enabled post types', 'dolpress' ), 'render_post_types', '', '' );
 		$this->add_field( 'default_mode', __( 'Default editor mode', 'dolpress' ), 'render_default_mode' );
 		$this->add_field( 'strict_diagnostics', __( 'Strict publishing diagnostics', 'dolpress' ), 'render_checkbox', __( 'Warn authors before publishing documents with structural errors.', 'dolpress' ) );
 		$this->add_field( 'public_invalid_command', __( 'Public invalid-command behaviour', 'dolpress' ), 'render_invalid_command' );
@@ -67,7 +67,7 @@ final class SettingsPage {
 		$this->add_field( 'uninstall_delete_data', __( 'Delete data on uninstall', 'dolpress' ), 'render_checkbox', __( 'When unchecked, settings are preserved after uninstall. Posts are never deleted.', 'dolpress' ) );
 	}
 
-	private function add_field( string $id, string $title, string $callback, string $description = '' ): void {
+	private function add_field( string $id, string $title, string $callback, string $description = '', ?string $label_for = null ): void {
 		add_settings_field(
 			$id,
 			$title,
@@ -75,7 +75,7 @@ final class SettingsPage {
 			'dolpress',
 			'dolpress_general',
 			array(
-				'label_for'   => 'dolpress_' . $id,
+				'label_for'   => $label_for ?? ( 'dolpress_' . $id ),
 				'key'         => $id,
 				'description' => $description,
 			)
@@ -86,10 +86,12 @@ final class SettingsPage {
 	 * @param array<string, mixed> $args
 	 */
 	public function render_post_types( array $args ): void {
+		unset( $args );
 		$enabled = $this->settings->get( 'enabled_post_types', PostTypePolicy::DEFAULT_ENABLED );
 		$types   = get_post_types( array( 'public' => true ), 'objects' );
 
 		echo '<fieldset>';
+		echo '<legend class="screen-reader-text">' . esc_html__( 'Enabled post types', 'dolpress' ) . '</legend>';
 		foreach ( $types as $type ) {
 			if ( PostTypePolicy::is_blocked( $type->name ) ) {
 				continue;
@@ -188,16 +190,37 @@ final class SettingsPage {
 	}
 
 	/**
+	 * Numeric settings with their sanitiser clamp ranges, so the form hints at
+	 * the same bounds the server enforces.
+	 *
+	 * @return array<string, array{min:int,max:int}>
+	 */
+	private function number_ranges(): array {
+		return array(
+			'max_loop_count'    => array(
+				'min' => 1,
+				'max' => 20,
+			),
+			'max_command_count' => array(
+				'min' => 10,
+				'max' => 1000,
+			),
+		);
+	}
+
+	/**
 	 * @param array<string, mixed> $args
 	 */
 	public function render_number( array $args ): void {
 		$key   = (string) $args['key'];
+		$range = $this->number_ranges()[ $key ] ?? null;
 		$value = (int) $this->settings->get( $key, 0 );
 		printf(
-			'<input type="number" id="dolpress_%1$s" name="%2$s[%1$s]" value="%3$s" class="small-text" />',
+			'<input type="number" id="dolpress_%1$s" name="%2$s[%1$s]" value="%3$s" class="small-text"%4$s />',
 			esc_attr( $key ),
 			esc_attr( SettingsRepository::OPTION_KEY ),
-			esc_attr( (string) $value )
+			esc_attr( (string) $value ),
+			is_array( $range ) ? sprintf( ' min="%d" max="%d"', $range['min'], $range['max'] ) : ''
 		);
 	}
 

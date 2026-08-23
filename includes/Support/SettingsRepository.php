@@ -13,18 +13,36 @@ final class SettingsRepository {
 	public const OPTION_KEY = 'dolpress_settings';
 
 	/**
+	 * Per-request memo of the sanitised settings. Sanitisation runs regexes and
+	 * array walks on every read otherwise; the render hot path calls get() often.
+	 *
+	 * @var array<string, mixed>|null
+	 */
+	private ?array $cache = null;
+
+	/**
 	 * @return array<string, mixed>
 	 */
 	public function all(): array {
-		$stored = function_exists( 'get_option' ) ? get_option( self::OPTION_KEY, array() ) : array();
+		if ( null === $this->cache ) {
+			$stored       = function_exists( 'get_option' ) ? get_option( self::OPTION_KEY, array() ) : array();
+			$this->cache  = SettingsSanitizer::sanitise( $stored, array( $this, 'is_public_post_type' ) );
+		}
 
-		return SettingsSanitizer::sanitise( $stored, array( $this, 'is_public_post_type' ) );
+		return $this->cache;
 	}
 
 	public function get( string $key, mixed $default = null ): mixed {
 		$all = $this->all();
 
 		return $all[ $key ] ?? $default;
+	}
+
+	/**
+	 * Drops the per-request memo so subsequent reads see fresh option data.
+	 */
+	public function flush_cache(): void {
+		$this->cache = null;
 	}
 
 	public function ensure_defaults(): void {

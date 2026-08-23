@@ -21,6 +21,9 @@ final class CacheTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();
+		Functions\when( 'sanitize_key' )->alias(
+			static fn( string $key ): string => preg_replace( '/[^a-z0-9_\-]/', '', strtolower( $key ) ) ?? ''
+		);
 	}
 
 	protected function tearDown(): void {
@@ -35,16 +38,81 @@ final class CacheTest extends TestCase {
 		$this->addToAssertionCount( 1 );
 	}
 
-	public function test_public_meta_change_bumps_dependency_generation(): void {
+	public function test_public_meta_change_bumps_per_key_counter(): void {
 		Functions\when( 'get_option' )->justReturn( 4 );
 		Functions\expect( 'update_option' )
 			->once()
-			->with( 'dolpress_cache_version_meta', 5, false )
+			->with( 'dolpress_cache_version_meta:subtitle', 5, false )
 			->andReturn( true );
 
 		$cache = new Cache( new SettingsRepository() );
 		$cache->on_post_meta( 1, 42, 'subtitle', 'New value' );
 		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_unrelated_meta_key_does_not_flush_cached_documents(): void {
+		// analytics_counter gets its own per-key counter; no global meta bump.
+		Functions\when( 'get_option' )->justReturn( 4 );
+		Functions\expect( 'update_option' )
+			->once()
+			->with( 'dolpress_cache_version_meta:analytics_counter', 5, false )
+			->andReturn( true );
+
+		$cache = new Cache( new SettingsRepository() );
+		$cache->on_post_meta( 1, 42, 'analytics_counter', '7' );
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_private_meta_change_is_ignored(): void {
+		Functions\expect( 'update_option' )->never();
+
+		$cache = new Cache( new SettingsRepository() );
+		$cache->on_post_meta( 1, 42, '_some_plugin_private', 'x' );
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_cache_entries_carry_schema_version(): void {
+		Functions\when( 'get_option' )->justReturn( 1 );
+		Functions\when( 'wp_json_encode' )->alias( static fn( mixed $data ): string => (string) json_encode( $data ) );
+
+		$captured = null;
+		Functions\expect( 'update_post_meta' )
+			->twice()
+			->andReturnUsing(
+				static function ( int $post_id, string $meta_key, mixed $value ) use ( &$captured ): bool {
+					if ( Cache::META_KEY === $meta_key ) {
+						$captured = $value;
+					}
+
+					return true;
+				}
+			);
+
+		$cache   = new Cache( new SettingsRepository() );
+		$context = new \Nought\DolPress\Rendering\RenderContext( 42, false, false, 0 );
+		$cache->put( 42, '$TX$', $context, '<div></div>', array( 'meta' => array( 'subtitle' ) ) );
+
+		$this->assertIsArray( $captured );
+		$this->assertSame( 'meta-keys', $captured['v'] ?? null );
+	}
+
+	public function test_flush_all_still_invalidates_keyed_documents(): void {
+		// version('meta:subtitle') must include the global meta counter so a
+		// legacy flush_all() bump still invalidates per-key cached documents.
+		$versions = array(
+			'dolpress_cache_version_meta'          => 3,
+			'dolpress_cache_version_meta:subtitle' => 5,
+		);
+		Functions\when( 'get_option' )->alias(
+			static fn( string $name, mixed $default = false ): mixed => $versions[ $name ] ?? ( is_int( $default ) ? $default : 1 )
+		);
+
+		$method = new \ReflectionMethod( Cache::class, 'version' );
+		$cache  = new Cache( new SettingsRepository() );
+
+		$this->assertSame( 8, $method->invoke( $cache, 'meta:subtitle' ) );
+		$this->assertSame( 3, $method->invoke( $cache, 'meta' ) );
+		$this->assertSame( 1, $method->invoke( $cache, 'post' ) );
 	}
 
 	public function test_post_invalidation_is_constant_time(): void {

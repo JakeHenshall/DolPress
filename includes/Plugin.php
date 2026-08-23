@@ -73,7 +73,7 @@ final class Plugin {
 			new SettingsPage( $settings ),
 			$frontend,
 			$cache,
-			new PreviewController( $settings, $renderer ),
+			new PreviewController( $settings, $renderer, $parser ),
 			new CommandSchemaController( $commands ),
 			new DocumentController( $settings, $bins, $actions )
 		);

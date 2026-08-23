@@ -54,6 +54,10 @@ final class Cache {
 			return null;
 		}
 
+		if ( ! isset( $stored['v'] ) || 'meta-keys' !== $stored['v'] ) {
+			return null; // Cache entry predates per-key invalidation.
+		}
+
 		$hash = $this->hash( $source, $context, $stored['dependencies'] );
 		if ( ( $stored['hash'] ?? '' ) !== $hash ) {
 			return null;
@@ -80,6 +84,7 @@ final class Cache {
 			$post_id,
 			self::META_KEY,
 			array(
+				'v'            => 'meta-keys',
 				'hash'         => $hash,
 				'html'         => $html,
 				'dependencies' => $types,
@@ -112,6 +117,7 @@ final class Cache {
 
 	public function on_option( string $option ): void {
 		if ( SettingsRepository::OPTION_KEY === $option ) {
+			$this->settings->flush_cache();
 			$this->flush_all();
 			return;
 		}
@@ -129,8 +135,20 @@ final class Cache {
 
 		if ( '_dolpress_bins' === $meta_key ) {
 			$this->bump( 'bin' );
+			return;
 		}
-		$this->bump( 'meta' );
+
+		if ( str_starts_with( $meta_key, '_' ) ) {
+			return; // Private meta never appears in public render output.
+		}
+
+		// Public keys invalidate per key; unrelated keys no longer flush every cached document.
+		$key = sanitize_key( $meta_key );
+		if ( '' === $key || strlen( $key ) > 64 ) {
+			$this->bump( 'meta' );
+			return;
+		}
+		$this->bump( 'meta:' . $key );
 	}
 
 	public function snapshot( int $post_id ): string {
@@ -163,20 +181,32 @@ final class Cache {
 	}
 
 	private function version( string $type ): int {
-		if ( ! in_array( $type, self::DEPENDENCY_TYPES, true ) ) {
-			return 1;
+		if ( ! str_starts_with( $type, 'meta:' ) ) {
+			if ( ! in_array( $type, self::DEPENDENCY_TYPES, true ) ) {
+				return 1;
+			}
+
+			return max( 1, (int) get_option( self::VERSION_PREFIX . $type, 1 ) );
 		}
 
-		return max( 1, (int) get_option( self::VERSION_PREFIX . $type, 1 ) );
+		// Per-meta-key counters fall back to the global meta counter so legacy
+		// flush_all() invalidation still takes effect for keyed documents.
+		$local = (int) get_option( self::VERSION_PREFIX . $type, 1 );
+		$base  = (int) get_option( self::VERSION_PREFIX . 'meta', 1 );
+
+		return max( 1, $local + $base );
 	}
 
 	private function bump( string $type ): void {
-		if ( ! in_array( $type, self::DEPENDENCY_TYPES, true ) || isset( $this->bumped[ $type ] ) ) {
+		if ( isset( $this->bumped[ $type ] ) ) {
+			return;
+		}
+		if ( ! in_array( $type, self::DEPENDENCY_TYPES, true ) && ! str_starts_with( $type, 'meta:' ) ) {
 			return;
 		}
 
 		$this->bumped[ $type ] = true;
 		$key                   = self::VERSION_PREFIX . $type;
-		update_option( $key, $this->version( $type ) + 1, false );
+		update_option( $key, (int) get_option( $key, 1 ) + 1, false );
 	}
 }

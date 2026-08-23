@@ -84,7 +84,7 @@
 
 .dolpress-colour-black { color: #000; }
 .dolpress-colour-blue, .dolpress-fg.dolpress-colour-blue { color: #00f; }
-.dolpress-fg.dolpress-colour-yellow { color: #a50; }
+.dolpress-fg.dolpress-colour-yellow { color: #806b00; }
 .dolpress-fg.dolpress-colour-white { color: #fff; }
 .dolpress-fg.dolpress-colour-red { color: #c00; }
 .dolpress-fg.dolpress-colour-green { color: #080; }
@@ -105,7 +105,7 @@
 .dolpress-colour-ltcyan { color: #5ff; }
 .dolpress-colour-ltred { color: #f55; }
 .dolpress-colour-ltpurple { color: #f5f; }
-.dolpress-colour-yellow { color: #a50; }
+.dolpress-colour-yellow { color: #806b00; }
 .dolpress-colour-white { color: #fff; }
 
 .dolpress-bg-black { background: #000; }
@@ -142,6 +142,15 @@
 .dolpress-so,
 .dolpress-ma,
 .dolpress-mu { margin: 0 0.25em 0.25em 0; }
+.dolpress-so.dolpress-playing { outline: 3px solid currentColor; outline-offset: 2px; }
+.screen-reader-text.dolpress-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .dolpress-bk { animation: dolpress-blink 1s step-end infinite; }
 
 @keyframes dolpress-blink {

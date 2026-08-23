@@ -49,7 +49,7 @@ final class ThreatModel {
 				'private_leak'        => 'Loops and WP/WM/IM check visibility.',
 				'shortcode_execution' => 'Ordinary text is escaped; shortcodes are not executed.',
 				'cache_poisoning'     => 'Cache keys include viewer and locale; logged-in HTML is not cached.',
-				'dos'                 => 'Source, token, command, nest, query, and time limits.',
+				'dos'                 => 'Source, token, command, nest, and query limits bound every parse; the render time budget is advisory (diagnostic only); REST compute endpoints are per-user rate limited.',
 			),
 			'disclosure'      => array(
 				'contact' => 'security@noughtdigital.com',
