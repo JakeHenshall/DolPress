@@ -193,7 +193,7 @@ final class LinkCommand extends AbstractCommand {
 			'public'    => true,
 			'preview'   => true,
 			'examples'  => array(
-				'$LK,"Nought",URL="https://noughtdigital.com"$',
+				'$LK,"Nought",URL="https://nought.digital"$',
 				'$LK,"Intro",A="FA:home,intro"$',
 			),
 			'schema'    => array(

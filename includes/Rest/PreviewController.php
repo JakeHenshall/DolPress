@@ -15,8 +15,8 @@ use Nought\DolPress\Rendering\RenderContext;
 use Nought\DolPress\Support\SettingsRepository;
 
 final class PreviewController {
-	private const RATE_LIMIT_MAX_HITS  = 30;
-	private const RATE_LIMIT_WINDOW    = 60;
+	private const RATE_LIMIT_MAX_HITS = 30;
+	private const RATE_LIMIT_WINDOW   = 60;
 
 	public function __construct(
 		private readonly SettingsRepository $settings,

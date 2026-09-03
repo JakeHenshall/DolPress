@@ -220,7 +220,7 @@ final class SettingsPage {
 			esc_attr( $key ),
 			esc_attr( SettingsRepository::OPTION_KEY ),
 			esc_attr( (string) $value ),
-			is_array( $range ) ? sprintf( ' min="%d" max="%d"', $range['min'], $range['max'] ) : ''
+			is_array( $range ) ? sprintf( ' min="%s" max="%s"', esc_attr( (string) $range['min'] ), esc_attr( (string) $range['max'] ) ) : ''
 		);
 	}
 

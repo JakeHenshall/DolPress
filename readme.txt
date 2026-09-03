@@ -54,4 +54,4 @@ First public MVP.
 
 == Security ==
 
-Report vulnerabilities privately to security@noughtdigital.com. DolPress never executes PHP, JavaScript, SQL, shell, or HolyC from document source.
+Report vulnerabilities privately to jake@nought.digital. DolPress never executes PHP, JavaScript, SQL, shell, or HolyC from document source.

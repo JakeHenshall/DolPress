@@ -126,6 +126,6 @@ final class CommandsAndSecurityTest extends TestCase {
 		$this->assertTrue( $model['controls']['no_eval'] );
 		$this->assertTrue( $model['controls']['kses_policy'] );
 		$this->assertTrue( $model['controls']['action_allowlist'] );
-		$this->assertSame( 'security@noughtdigital.com', $model['disclosure']['contact'] );
+		$this->assertSame( 'jake@nought.digital', $model['disclosure']['contact'] );
 	}
 }

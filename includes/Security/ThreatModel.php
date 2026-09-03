@@ -52,7 +52,7 @@ final class ThreatModel {
 				'dos'                 => 'Source, token, command, nest, and query limits bound every parse; the render time budget is advisory (diagnostic only); REST compute endpoints are per-user rate limited.',
 			),
 			'disclosure'      => array(
-				'contact' => 'security@noughtdigital.com',
+				'contact' => 'jake@nought.digital',
 				'policy'  => 'Report privately. Do not exploit production sites.',
 			),
 		);

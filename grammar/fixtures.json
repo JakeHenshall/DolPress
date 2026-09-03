@@ -25,7 +25,7 @@
   {"name":"recovery-after-bad","source":"$1$then $CR$","diagnostics":[{"code":"E_BAD_CODE"}],"tree":[{"type":"command","malformed":true},{"type":"text","value":"then "},{"type":"command","code":"CR"}]},
   {"name":"unmatched-close","source":"$/TR$","diagnostics":[{"code":"E_UNMATCHED_CLOSE"}],"tree":[]},
   {"name":"hr","source":"$HR$","diagnostics":[],"tree":[{"type":"command","code":"HR"}]},
-  {"name":"link","source":"$LK,\"Nought\",URL=\"https://noughtdigital.com\"$","diagnostics":[],"tree":[{"type":"command","code":"LK","arguments":[{"name":"","value":"Nought"},{"name":"URL","value":"https://noughtdigital.com"}]}]},
+  {"name":"link","source":"$LK,\"Nought\",URL=\"https://nought.digital\"$","diagnostics":[],"tree":[{"type":"command","code":"LK","arguments":[{"name":"","value":"Nought"},{"name":"URL","value":"https://nought.digital"}]}]},
   {"name":"button","source":"$BT,\"Top\",ACTION=\"top\"$","diagnostics":[],"tree":[{"type":"command","code":"BT"}]},
   {"name":"image","source":"$IM,ID=12,SIZE=\"large\"$","diagnostics":[],"tree":[{"type":"command","code":"IM","arguments":[{"name":"ID","value":12},{"name":"SIZE","value":"large"}]}]},
   {"name":"site-name","source":"$WS,FIELD=\"name\"$","diagnostics":[],"tree":[{"type":"command","code":"WS"}]},

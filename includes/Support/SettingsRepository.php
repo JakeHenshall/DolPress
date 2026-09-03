@@ -25,8 +25,8 @@ final class SettingsRepository {
 	 */
 	public function all(): array {
 		if ( null === $this->cache ) {
-			$stored       = function_exists( 'get_option' ) ? get_option( self::OPTION_KEY, array() ) : array();
-			$this->cache  = SettingsSanitizer::sanitise( $stored, array( $this, 'is_public_post_type' ) );
+			$stored      = function_exists( 'get_option' ) ? get_option( self::OPTION_KEY, array() ) : array();
+			$this->cache = SettingsSanitizer::sanitise( $stored, array( $this, 'is_public_post_type' ) );
 		}
 
 		return $this->cache;

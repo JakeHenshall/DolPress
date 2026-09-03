@@ -117,8 +117,8 @@ final class AnchorCommand extends AbstractCommand {
 			return $base;
 		}
 
-		$n                            = ++$context->anchor_ids[ $base ];
-		$id                           = $base . '-' . $n;
+		$n  = ++$context->anchor_ids[ $base ];
+		$id = $base . '-' . $n;
 		while ( isset( $context->anchor_ids[ $id ] ) ) {
 			$id = $base . '-' . ( ++$context->anchor_ids[ $base ] );
 		}
